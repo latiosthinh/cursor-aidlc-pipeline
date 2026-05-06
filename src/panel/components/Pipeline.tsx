@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { StepCard } from "./StepCard";
 import { DecisionLog } from "./DecisionLog";
 import type { BridgeState } from "../hooks/useExtensionState";
@@ -45,6 +45,34 @@ const statusBadge = (status: string) => {
 };
 
 export const Pipeline: React.FC<PipelineProps> = ({ state, postMessage, agentRunning }) => {
+  const [logStepId, setLogStepId] = useState<string | null>(null);
+  const [logContent, setLogContent] = useState<string | null>(null);
+  const [loadingLog, setLoadingLog] = useState(false);
+
+  const handleViewLog = (stepId: string) => {
+    if (logStepId === stepId) {
+      setLogStepId(null);
+      setLogContent(null);
+      return;
+    }
+    setLogStepId(stepId);
+    setLogContent(null);
+    setLoadingLog(true);
+    postMessage({ type: "getStepLog", runId: state.runId, stepId });
+  };
+
+  React.useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const msg = event.data;
+      if (msg.type === "stepLog") {
+        setLoadingLog(false);
+        setLogContent(msg.content ?? "# No artifact yet for this step");
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
   return (
     <div className="p-4 space-y-4">
       {/* Run status banner */}
@@ -67,16 +95,41 @@ export const Pipeline: React.FC<PipelineProps> = ({ state, postMessage, agentRun
       {/* Steps */}
       <div className="space-y-2">
         {state.steps.map((step, i) => (
-          <StepCard
-            key={step.id}
-            step={step}
-            index={i}
-            statusIcon={statusIcon(step.status)}
-            statusLabel={statusLabel(step.status)}
-            statusBadge={statusBadge(step.status)}
-            postMessage={postMessage}
-            agentRunning={agentRunning}
-          />
+          <React.Fragment key={step.id}>
+            <StepCard
+              step={step}
+              index={i}
+              statusIcon={statusIcon(step.status)}
+              statusLabel={statusLabel(step.status)}
+              statusBadge={statusBadge(step.status)}
+              postMessage={postMessage}
+              agentRunning={agentRunning}
+              onViewLog={() => handleViewLog(step.id)}
+              showLogs={logStepId === step.id}
+            />
+            {logStepId === step.id && (
+              <div className="ml-6 pl-4 border-l-2 border-border">
+                <div className="rounded-lg border border-border bg-card overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/20">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Artifact: {step.artifact || step.id}
+                    </span>
+                    <button
+                      onClick={() => setLogStepId(null)}
+                      className="btn-ghost h-5 w-5 p-0"
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <pre className="p-3 text-xs font-mono text-muted-foreground overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap">
+                    {loadingLog ? "Loading..." : logContent}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </React.Fragment>
         ))}
       </div>
 

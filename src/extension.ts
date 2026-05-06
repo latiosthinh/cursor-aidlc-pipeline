@@ -184,6 +184,25 @@ class PipelinePanel {
       case "saveSkill":
         await this._handleSaveSkill(msg.id as string, msg.content as string);
         break;
+      case "listRuns": {
+        const runs = this._bridge.listRuns();
+        this.postMessage({ type: "runList", runs });
+        break;
+      }
+      case "selectRun": {
+        const runState = this._bridge.loadRunById(msg.runId as string);
+        if (runState) {
+          const bridgeState = this._bridge.getBridgeState();
+          if (bridgeState) this.postMessage({ type: "stateUpdate", state: bridgeState });
+          this._handleInit();
+        }
+        break;
+      }
+      case "getStepLog": {
+        const content = this._bridge.getRunStepLog(msg.runId as string, msg.stepId as string);
+        this.postMessage({ type: "stepLog", runId: msg.runId, stepId: msg.stepId, content });
+        break;
+      }
       default:
         this._log.warn(`Unknown message type: ${msg.type}`);
     }

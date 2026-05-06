@@ -66,6 +66,18 @@ export interface BridgeDecision {
   stepId?: string;
 }
 
+export interface RunSummary {
+  runId: string;
+  pipelineName: string;
+  status: string;
+  idea: string;
+  startedAt: string;
+  stepCount: number;
+  completedSteps: number;
+  currentStepId: string | null;
+  hasGatePending: boolean;
+}
+
 export class EngineBridge {
   private config: BridgeConfig;
   private loader: PipelineLoader;
@@ -366,6 +378,51 @@ export class EngineBridge {
         stepId: d.stepId,
       })),
     };
+  }
+
+  listRuns(): RunSummary[] {
+    const runIds = this.runStore.listRuns();
+    const summaries: RunSummary[] = [];
+
+    for (const runId of runIds) {
+      const state = this.runStore.loadState(runId);
+      if (!state) continue;
+      const idea = state.decisions.find((d) => d.type === "run_started")?.summary ?? "";
+      const steps = Object.values(state.steps);
+      const gatePending = steps.some((s) => s.status === "in_review");
+
+      summaries.push({
+        runId: state.runId,
+        pipelineName: state.pipelineName,
+        status: state.status,
+        idea,
+        startedAt: state.startedAt,
+        stepCount: steps.length,
+        completedSteps: steps.filter((s) => s.status === "approved" || s.status === "skipped").length,
+        currentStepId: state.currentStepId,
+        hasGatePending: gatePending,
+      });
+    }
+
+    return summaries.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  }
+
+  getRunStepLog(runId: string, stepId: string): string | null {
+    return this.runStore.loadArtifact(runId, stepId);
+  }
+
+  loadRunById(runId: string): PipelineRunState | null {
+    const state = this.runStore.loadState(runId);
+    if (state) {
+      this.currentRun = state;
+      // Try to load the matching pipeline
+      try {
+        this.currentPipeline = this.loader.loadPipeline(state.pipelineName);
+      } catch {
+        this.currentPipeline = null;
+      }
+    }
+    return state;
   }
 
   private emitStateUpdate(): void {

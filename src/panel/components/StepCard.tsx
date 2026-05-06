@@ -9,6 +9,8 @@ interface StepCardProps {
   statusBadge: string;
   postMessage: (msg: Record<string, unknown>) => void;
   agentRunning: boolean;
+  onViewLog?: () => void;
+  showLogs?: boolean;
 }
 
 function StatusIcon({ name }: { name: string }) {
@@ -38,6 +40,8 @@ export const StepCard: React.FC<StepCardProps> = ({
   statusBadge,
   postMessage,
   agentRunning,
+  onViewLog,
+  showLogs,
 }) => {
   const isActive = step.status === "in_review" || step.status === "running";
   const isComplete = step.status === "approved";
@@ -72,6 +76,8 @@ export const StepCard: React.FC<StepCardProps> = ({
                 <span>{step.agentLabel}</span>
                 <span className="text-muted-foreground/40">·</span>
                 <span>{step.model.split("-").slice(0, 2).join("-")}</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="font-mono text-[10px]">{step.id}</span>
               </div>
             </div>
           </div>
@@ -116,6 +122,15 @@ export const StepCard: React.FC<StepCardProps> = ({
               </button>
             </>
           )}
+          <button
+            onClick={onViewLog}
+            className={`btn-ghost h-7 text-xs gap-1.5 ${showLogs ? "text-primary" : ""}`}
+          >
+            <svg className={`w-3.5 h-3.5 ${showLogs ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transition: "transform 0.2s" }}>
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            {showLogs ? "Hide Logs" : "Logs"}
+          </button>
           {(isComplete || isRejected) && (
             <button
               onClick={() => postMessage({ type: "openArtifact", stepId: step.id })}

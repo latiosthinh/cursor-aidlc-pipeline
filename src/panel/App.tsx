@@ -4,12 +4,13 @@ import { Pipeline } from "./components/Pipeline";
 import { AgentStream } from "./components/AgentStream";
 import { PipelineSelector } from "./components/PipelineSelector";
 import { PipelineEditor } from "./components/dag-canvas/PipelineEditor";
+import { RunsList } from "./components/RunsList";
 import type { DagData } from "./components/dag-canvas/PipelineEditor";
 
-type ViewMode = "start" | "run" | "edit";
+type ViewMode = "start" | "run" | "edit" | "runs";
 
 export default function App() {
-  const { state, pipelines, agents, skills, agentStatus, agentStream, error, streamEndRef, postMessage, setError } =
+  const { state, pipelines, agents, skills, runs, agentStatus, agentStream, error, streamEndRef, postMessage, setError } =
     useExtensionState();
   const [mode, setMode] = useState<ViewMode>("start");
   const [editingData, setEditingData] = useState<DagData | null>(null);
@@ -30,6 +31,13 @@ export default function App() {
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, []);
+
+  // Refresh runs when state updates (run completed, etc.)
+  React.useEffect(() => {
+    if (state?.runStatus === "completed" || state?.runStatus === "failed" || state?.runStatus === "cancelled") {
+      postMessage({ type: "listRuns" });
+    }
+  }, [state?.runStatus]);
 
   const handleEditPipeline = (pipeline: string) => {
     postMessage({ type: "editPipeline", pipeline });
@@ -86,7 +94,20 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {pipelines.length > 0 && (
+          <button
+            onClick={() => setMode(mode === "start" ? "runs" : "start")}
+            className="btn-ghost h-7 px-2 text-xs"
+          >
+            <svg className="w-3.5 h-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {mode === "start" ? (
+                <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>
+              ) : (
+                <><line x1="3" y1="12" x2="21" y2="12"/><polyline points="3 12 7 8 7 16"/></>
+              )}
+            </svg>
+            {mode === "start" ? "History" : "New Run"}
+          </button>
+          {pipelines.length > 0 && mode === "start" && (
             <button
               onClick={() => handleEditPipeline(pipelines[0])}
               className="btn-ghost h-7 px-2 text-xs"
@@ -109,10 +130,17 @@ export default function App() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {!hasState && !agentStatus ? (
+        {mode === "runs" ? (
+          <RunsList
+            runs={runs}
+            activeRunId={state?.runId ?? null}
+            postMessage={postMessage}
+            onBack={() => setMode(hasState ? "run" : "start")}
+          />
+        ) : !hasState && !agentStatus ? (
           <PipelineSelector
             pipelines={pipelines}
-            onStart={(pipeline, idea) => postMessage({ type: "startRun", pipeline, idea })}
+            onStart={(pipeline, idea) => { postMessage({ type: "startRun", pipeline, idea }); setMode("run"); }}
             onEdit={handleEditPipeline}
             onCreate={() => postMessage({ type: "createPipeline" })}
           />
