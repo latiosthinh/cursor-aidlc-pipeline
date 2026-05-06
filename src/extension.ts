@@ -462,6 +462,7 @@ export function activate(context: vscode.ExtensionContext) {
       border-radius: 6px; color: var(--fg); font-size: 13px; outline: none;
     }
     .field input:focus, .field select:focus { border-color: var(--ring); }
+    .field select option { background: var(--card); color: var(--fg); }
     .field .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
     .checkbox { display: flex; align-items: center; gap: 8px; font-size: 13px; }
     .checkbox input { accent-color: var(--primary); }
