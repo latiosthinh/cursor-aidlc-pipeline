@@ -9,7 +9,7 @@ import type { DagData } from "./components/dag-canvas/PipelineEditor";
 type ViewMode = "start" | "run" | "edit";
 
 export default function App() {
-  const { state, pipelines, agents, agentStatus, agentStream, error, streamEndRef, postMessage, setError } =
+  const { state, pipelines, agents, skills, agentStatus, agentStream, error, streamEndRef, postMessage, setError } =
     useExtensionState();
   const [mode, setMode] = useState<ViewMode>("start");
   const [editingData, setEditingData] = useState<DagData | null>(null);
@@ -20,8 +20,11 @@ export default function App() {
     const handler = (event: MessageEvent) => {
       const msg = event.data;
       if (msg.type === "pipelineData") {
-        setEditingData(msg.data);
+        setEditingData({ ...msg.data, skills: msg.data.skills ?? [] });
         setMode("edit");
+      }
+      if (msg.type === "skillList") {
+        setEditingData((prev) => prev ? { ...prev, skills: msg.skills } : prev);
       }
     };
     window.addEventListener("message", handler);
@@ -38,6 +41,14 @@ export default function App() {
     setMode(hasState ? "run" : "start");
   };
 
+  const handleRenamePipeline = (oldName: string, newName: string) => {
+    postMessage({ type: "renamePipeline", oldName, newName });
+  };
+
+  const handleCreateSkill = (id: string, content: string) => {
+    postMessage({ type: "saveSkill", id, content });
+  };
+
   const handleCloseEditor = () => {
     setEditingData(null);
     setMode(hasState ? "run" : "start");
@@ -49,6 +60,8 @@ export default function App() {
         data={editingData}
         onSave={handleSavePipeline}
         onClose={handleCloseEditor}
+        onRename={handleRenamePipeline}
+        onCreateSkill={handleCreateSkill}
       />
     );
   }

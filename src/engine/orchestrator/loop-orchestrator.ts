@@ -13,6 +13,7 @@ import { AutoReviewer } from "../runner/auto-reviewer";
 import { StepRunner, RunnerOptions } from "../runner/step-runner";
 import { AgentRegistry } from "../agents/registry";
 import { PipelineValidator } from "../pipeline/validator";
+import { SkillLoader } from "../artifacts/skill-loader";
 
 export interface OrchestratorConfig {
   cwd: string;
@@ -29,6 +30,7 @@ export class LoopOrchestrator {
   private loopManager: LoopManager;
   private cascadeRejector: CascadeRejector;
   private reviewer: AutoReviewer;
+  private skillLoader: SkillLoader;
 
   constructor() {
     this.machine = new StateMachine();
@@ -36,6 +38,7 @@ export class LoopOrchestrator {
     this.loopManager = new LoopManager();
     this.cascadeRejector = new CascadeRejector();
     this.reviewer = new AutoReviewer();
+    this.skillLoader = new SkillLoader("");
   }
 
   async run(
@@ -44,6 +47,7 @@ export class LoopOrchestrator {
     config: OrchestratorConfig,
   ): Promise<void> {
     const { cwd, runner, agentRegistry, onEvent, onDecision, signal } = config;
+    this.skillLoader = new SkillLoader(cwd);
 
     const issues = this.validator.validate(pipeline);
     const errors = issues.filter((i) => i.type === "error");
@@ -161,11 +165,16 @@ export class LoopOrchestrator {
       }
 
       // ── Normal agent execution ───────────────────────────
+      const skillsContext = stepDef.skills && stepDef.skills.length > 0
+        ? this.skillLoader.buildContext(stepDef.skills)
+        : "";
+
       const result = await runner.run(stepDef, {
         cwd,
         model: stepDef.model,
         idea: run.decisions.find((d) => d.type === "run_started")?.summary ?? "",
         artifacts: { "system-prompt": { frontmatter: {}, body: systemPrompt } },
+        skillsContext,
       }, { cwd, onEvent, signal });
 
       // ── Auto-review ──────────────────────────────────────

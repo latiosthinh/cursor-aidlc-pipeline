@@ -142,6 +142,12 @@ export class CursorSdkStepRunner implements StepRunner {
   private buildPrompt(step: StepDefinition, context: AgentContext): string {
     const parts: string[] = [];
 
+    if (context.skillsContext) {
+      parts.push(`## Attached Skills`);
+      parts.push(context.skillsContext);
+      parts.push("");
+    }
+
     parts.push(`## Current Context`);
     parts.push(`- Working directory: ${context.cwd}`);
     parts.push(`- Step: ${step.name} (${step.id})`);
@@ -212,6 +218,13 @@ export class AnthropicStepRunner implements StepRunner {
 
   private buildPrompt(step: StepDefinition, context: AgentContext): string {
     const parts: string[] = [];
+
+    if (context.skillsContext) {
+      parts.push(`## Attached Skills`);
+      parts.push(context.skillsContext);
+      parts.push("");
+    }
+
     parts.push(`You are executing step "${step.name}" (${step.id}).`);
     parts.push(`Working directory: ${context.cwd}`);
     parts.push(`Idea: ${context.idea}`);

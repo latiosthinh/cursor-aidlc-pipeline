@@ -4,10 +4,12 @@ import type { DagStep } from "./PipelineEditor";
 interface StepConfigSidebarProps {
   step: DagStep;
   agents: string[];
+  skills: string[];
   onChange: (updates: Partial<DagStep>) => void;
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onCreateSkill: () => void;
 }
 
 const MODELS = [
@@ -36,10 +38,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export const StepConfigSidebar: React.FC<StepConfigSidebarProps> = ({
   step,
   agents,
+  skills,
   onChange,
   onRemove,
   onMoveUp,
   onMoveDown,
+  onCreateSkill,
 }) => {
   return (
     <div className="w-80 border-l border-border bg-card overflow-y-auto">
@@ -165,6 +169,57 @@ export const StepConfigSidebar: React.FC<StepConfigSidebarProps> = ({
             placeholder="product, technical"
           />
         </Field>
+
+        {/* Skills */}
+        <div>
+          <label className="text-xs font-medium text-muted-foreground block mb-1.5">Skills</label>
+          <div className="space-y-2">
+            {step.skills.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {step.skills.map((sk) => (
+                  <span
+                    key={sk}
+                    className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400"
+                  >
+                    {sk}
+                    <button
+                      onClick={() => onChange({ skills: step.skills.filter((s) => s !== sk) })}
+                      className="hover:text-emerald-300"
+                      title="Remove skill"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-1.5">
+              <select
+                className="select-field text-xs flex-1"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value && !step.skills.includes(e.target.value)) {
+                    onChange({ skills: [...step.skills, e.target.value] });
+                  }
+                }}
+              >
+                <option value="">Add skill…</option>
+                {skills
+                  .filter((s) => !step.skills.includes(s))
+                  .map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+              </select>
+              <button
+                onClick={onCreateSkill}
+                className="btn-secondary h-7 px-2 text-[10px] whitespace-nowrap"
+                title="Create custom skill"
+              >
+                + New
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* Dependencies */}
         <div>

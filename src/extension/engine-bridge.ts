@@ -17,6 +17,7 @@ import {
   AgentEvent,
   RUNS_DIR,
 } from "../engine/index";
+import { SkillLoader } from "../engine/artifacts/skill-loader";
 import { getCurrentBranch, getGitUserEmail } from "../utils/git";
 
 export interface BridgeConfig {
@@ -95,6 +96,11 @@ export class EngineBridge {
     return this.agentRegistry.listAll().map((a) => a.id);
   }
 
+  get skills(): string[] {
+    const loader = new SkillLoader(this.config.workspaceRoot);
+    return loader.loadAll().map((s) => s.id);
+  }
+
   selectPipeline(name: string): PipelineDefinition {
     this.currentPipeline = this.loader.loadPipeline(name);
     return this.currentPipeline;
@@ -123,12 +129,28 @@ export class EngineBridge {
           artifact: "idea.md",
           depends_on: [],
           tags: ["product"],
+          skills: [],
         },
       ],
       agents: [],
     };
     this.savePipeline(name, pipeline);
     return { name, pipeline };
+  }
+
+  renamePipeline(oldName: string, newName: string): void {
+    const pipeline = this.loader.loadPipeline(oldName);
+    pipeline.name = newName;
+    this.loader.savePipeline(newName, pipeline);
+    if (oldName !== newName) {
+      this.loader.deletePipeline(oldName);
+    }
+    this.currentPipeline = pipeline;
+  }
+
+  saveSkill(id: string, content: string): void {
+    const loader = new SkillLoader(this.config.workspaceRoot);
+    loader.save(id, content);
   }
 
   ensureSkeletonExists(): void {

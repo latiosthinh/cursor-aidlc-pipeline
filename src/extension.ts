@@ -178,6 +178,12 @@ class PipelinePanel {
       case "savePipeline":
         await this._handleSavePipeline(msg.name as string, msg.data as any);
         break;
+      case "renamePipeline":
+        await this._handleRenamePipeline(msg.oldName as string, msg.newName as string);
+        break;
+      case "saveSkill":
+        await this._handleSaveSkill(msg.id as string, msg.content as string);
+        break;
       default:
         this._log.warn(`Unknown message type: ${msg.type}`);
     }
@@ -190,11 +196,13 @@ class PipelinePanel {
     }
     const pipelines = this._bridge.pipelines;
     const agents = this._bridge.agents;
-    this._log.info(`Init: workspaceRoot=${this._workspaceRoot}, pipelines=${JSON.stringify(pipelines)}, agents=${JSON.stringify(agents)}`);
+    const skills = this._bridge.skills;
+    this._log.info(`Init: workspaceRoot=${this._workspaceRoot}, pipelines=${JSON.stringify(pipelines)}, agents=${JSON.stringify(agents)}, skills=${JSON.stringify(skills)}`);
     this.postMessage({
       type: "init",
       pipelines,
       agents,
+      skills,
     });
   }
 
@@ -228,6 +236,7 @@ class PipelinePanel {
     try {
       const pipelineDef = this._bridge.selectPipeline(pipeline);
       const agents = this._bridge.agents;
+      const skills = this._bridge.skills;
       this.postMessage({
         type: "pipelineData",
         data: {
@@ -245,8 +254,10 @@ class PipelinePanel {
             loop: s.loop ?? null,
             tags: s.tags ?? [],
             depends_on: s.depends_on ?? [],
+            skills: s.skills ?? [],
           })),
           agents,
+          skills,
         },
       });
     } catch (err: any) {
@@ -284,6 +295,7 @@ class PipelinePanel {
           depends_on: s.depends_on ?? [],
           loop: s.loop ?? undefined,
           tags: s.tags ?? [],
+          skills: s.skills ?? [],
         })),
         agents: [],
       };
@@ -291,6 +303,27 @@ class PipelinePanel {
       this._log.info(`Pipeline "${name}" saved`);
     } catch (err: any) {
       this._log.error(`Failed to save pipeline: ${err.message}`);
+    }
+  }
+
+  private async _handleRenamePipeline(oldName: string, newName: string): Promise<void> {
+    try {
+      this._bridge.renamePipeline(oldName, newName);
+      this._log.info(`Pipeline renamed: "${oldName}" -> "${newName}"`);
+      this._handleInit();
+    } catch (err: any) {
+      this._log.error(`Failed to rename pipeline: ${err.message}`);
+    }
+  }
+
+  private async _handleSaveSkill(id: string, content: string): Promise<void> {
+    try {
+      this._bridge.saveSkill(id, content);
+      this._log.info(`Skill "${id}" saved`);
+      const skills = this._bridge.skills;
+      this.postMessage({ type: "skillList", skills });
+    } catch (err: any) {
+      this._log.error(`Failed to save skill: ${err.message}`);
     }
   }
 }
@@ -348,9 +381,9 @@ export function activate(context: vscode.ExtensionContext) {
     }
     getChildren(): ActionItem[] {
       return [
-        new ActionItem("Open Pipeline", "specflow.openPanel", "$(symbol-ruler)"),
-        new ActionItem("Run Pipeline", "specflow.startRun", "$(play)"),
-        new ActionItem("Approve Step", "specflow.approvePhase", "$(check)"),
+        new ActionItem("Open Pipeline", "specflow.openPanel", "$(pipeline)"),
+        new ActionItem("Run Pipeline", "specflow.startRun", "$(zap)"),
+        new ActionItem("Approve Step", "specflow.approvePhase", "$(thumbsup)"),
       ];
     }
   }

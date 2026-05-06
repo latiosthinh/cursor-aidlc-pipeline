@@ -75,12 +75,13 @@ export interface AgentStatusData {
 
 export type ExtensionMessage =
   | { type: "stateUpdate"; state: BridgeState }
-  | { type: "init"; pipelines: string[]; agents: string[] }
+  | { type: "init"; pipelines: string[]; agents: string[]; skills: string[] }
   | { type: "agentStatus"; status: AgentStatusData | null }
   | { type: "agentEvent"; event: AgentEventData }
   | { type: "agentComplete"; phase: string }
   | { type: "agentError"; error: string }
-  | { type: "decision"; decision: BridgeDecision };
+  | { type: "decision"; decision: BridgeDecision }
+  | { type: "skillList"; skills: string[] };
 
 // ── Hook ────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ export function useExtensionState() {
   const [state, setState] = useState<BridgeState | null>(null);
   const [pipelines, setPipelines] = useState<string[]>([]);
   const [agents, setAgents] = useState<string[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
   const [agentStatus, setAgentStatus] = useState<AgentStatusData | null>(null);
   const [agentStream, setAgentStream] = useState<AgentEventData[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +106,10 @@ export function useExtensionState() {
         case "init":
           setPipelines(msg.pipelines);
           setAgents(msg.agents);
+          setSkills(msg.skills ?? []);
+          break;
+        case "skillList":
+          setSkills(msg.skills);
           break;
         case "agentStatus":
           setAgentStatus(msg.status);
@@ -140,6 +146,7 @@ export function useExtensionState() {
     state,
     pipelines,
     agents,
+    skills,
     agentStatus,
     agentStream,
     error,

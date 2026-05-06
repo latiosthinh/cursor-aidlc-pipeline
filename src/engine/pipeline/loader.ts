@@ -55,6 +55,13 @@ export class PipelineLoader {
     fs.writeFileSync(path.join(dir, `${name}.yaml`), yamlStr, "utf-8");
   }
 
+  deletePipeline(name: string): void {
+    const yamlPath = path.join(this.workspaceRoot, PIPELINE_CONFIG_DIR, `${name}.yaml`);
+    if (fs.existsSync(yamlPath)) {
+      fs.unlinkSync(yamlPath);
+    }
+  }
+
   loadAgent(agentId: string): string | null {
     const dir = path.join(this.workspaceRoot, AGENTS_DIR);
     const filePath = path.join(dir, `${agentId}.md`);

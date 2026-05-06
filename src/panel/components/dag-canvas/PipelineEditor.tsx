@@ -26,6 +26,7 @@ export interface DagStep {
   loop?: { mode: "task" | "phase" | "cascade"; agent?: string; maxIterations: number } | null;
   tags: string[];
   depends_on: string[];
+  skills: string[];
 }
 
 export interface DagData {
@@ -34,12 +35,15 @@ export interface DagData {
   description: string;
   steps: DagStep[];
   agents: string[];
+  skills: string[];
 }
 
-interface PipelineEditorProps {
+export interface PipelineEditorProps {
   data: DagData;
   onSave: (data: DagData) => void;
   onClose: () => void;
+  onRename: (oldName: string, newName: string) => void;
+  onCreateSkill: (id: string, content: string) => void;
 }
 
 const nodeTypes = { stepNode: StepNode };
@@ -71,9 +75,11 @@ function buildLayout(steps: DagStep[]): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
-export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, onClose }) => {
+export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, onClose, onRename, onCreateSkill }) => {
   const [editing, setEditing] = useState<DagData>(data);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(data.name);
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildLayout(editing.steps), [editing.steps]);
 
@@ -144,6 +150,7 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
           artifact: `${newId}.md`,
           tags: [],
           depends_on: prev.steps.length > 0 ? [prev.steps[prev.steps.length - 1].id] : [],
+          skills: [],
         },
       ],
     }));
@@ -191,10 +198,43 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
                 <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
               </svg>
             </div>
-            <div>
-              <span className="text-sm font-semibold">{editing.name}</span>
-              <span className="text-xs text-muted-foreground ml-2">v{editing.version}</span>
-            </div>
+            {renaming ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (renameValue.trim() && renameValue !== editing.name) {
+                    const oldName = editing.name;
+                    const newName = renameValue.trim();
+                    setEditing((prev) => ({ ...prev, name: newName }));
+                    onRename(oldName, newName);
+                  }
+                  setRenaming(false);
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  className="input text-xs h-6 w-48"
+                  autoFocus
+                  onBlur={() => setRenaming(false)}
+                />
+              </form>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-semibold">{editing.name}</span>
+                <span className="text-xs text-muted-foreground">v{editing.version}</span>
+                <button
+                  onClick={() => { setRenameValue(editing.name); setRenaming(true); }}
+                  className="btn-ghost h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                  title="Rename pipeline"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button onClick={addStep} className="btn-secondary h-7 text-xs gap-1.5">
@@ -253,10 +293,41 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
         <StepConfigSidebar
           step={selectedStep}
           agents={editing.agents}
+          skills={editing.skills}
           onChange={(updates) => updateStep(selectedStep.id, updates)}
           onRemove={() => removeStep(selectedStep.id)}
           onMoveUp={() => moveStep(selectedStep.id, "up")}
           onMoveDown={() => moveStep(selectedStep.id, "down")}
+          onCreateSkill={() => {
+            const skillId = prompt("Skill name (e.g. react-best-practices):");
+            if (skillId?.trim()) {
+              const id = skillId.trim().toLowerCase().replace(/\s+/g, "-");
+              const content = `---
+id: "${id}"
+label: "${id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}"
+description: "Custom skill for ${id}"
+category: "custom"
+---
+
+# ${id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+
+Add your skill instructions here. This content will be injected into the agent's system prompt when this skill is attached to a step.
+
+## Guidelines
+
+- 
+
+## Examples
+
+- `;
+              onCreateSkill(id, content);
+              setEditing((prev) => ({
+                ...prev,
+                skills: prev.skills.includes(id) ? prev.skills : [...prev.skills, id],
+              }));
+              updateStep(selectedStep.id, { skills: [...selectedStep.skills, id] });
+            }
+          }}
         />
       )}
     </div>

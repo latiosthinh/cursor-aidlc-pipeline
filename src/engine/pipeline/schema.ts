@@ -21,6 +21,7 @@ export const StepDefinitionSchema = z.object({
   depends_on: z.array(z.string()).default([]),
   loop: LoopConfigSchema.optional(),
   tags: z.array(z.string()).default([]),
+  skills: z.array(z.string()).default([]),
 });
 
 export type StepDefinition = z.infer<typeof StepDefinitionSchema>;
@@ -174,6 +175,7 @@ export interface AgentContext {
   artifacts: Record<string, ArtifactData>;
   tasks?: TaskItem[];
   currentTask?: TaskItem;
+  skillsContext?: string;
 }
 
 export interface ArtifactData {
