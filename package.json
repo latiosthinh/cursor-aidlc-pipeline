@@ -23,7 +23,7 @@
         {
           "id": "aidlc",
           "title": "AIDLC",
-          "icon": "$(symbol-ruler)"
+          "icon": "media/icons/aidlc.svg"
         }
       ]
     },

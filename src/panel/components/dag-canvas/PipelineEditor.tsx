@@ -14,6 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { StepNode } from "./StepNode";
 import { StepConfigSidebar } from "./StepConfigSidebar";
+import { SkillModal } from "../SkillModal";
 
 export interface DagStep {
   id: string;
@@ -80,6 +81,7 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(data.name);
+  const [showSkillModal, setShowSkillModal] = useState(false);
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildLayout(editing.steps), [editing.steps]);
 
@@ -298,36 +300,27 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
           onRemove={() => removeStep(selectedStep.id)}
           onMoveUp={() => moveStep(selectedStep.id, "up")}
           onMoveDown={() => moveStep(selectedStep.id, "down")}
-          onCreateSkill={() => {
-            const skillId = prompt("Skill name (e.g. react-best-practices):");
-            if (skillId?.trim()) {
-              const id = skillId.trim().toLowerCase().replace(/\s+/g, "-");
-              const content = `---
-id: "${id}"
-label: "${id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}"
-description: "Custom skill for ${id}"
-category: "custom"
----
+          onCreateSkill={() => setShowSkillModal(true)}
+        />
+      )}
 
-# ${id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-
-Add your skill instructions here. This content will be injected into the agent's system prompt when this skill is attached to a step.
-
-## Guidelines
-
-- 
-
-## Examples
-
-- `;
-              onCreateSkill(id, content);
-              setEditing((prev) => ({
-                ...prev,
-                skills: prev.skills.includes(id) ? prev.skills : [...prev.skills, id],
-              }));
-              updateStep(selectedStep.id, { skills: [...selectedStep.skills, id] });
+      {showSkillModal && (
+        <SkillModal
+          onConfirm={(id, content) => {
+            onCreateSkill(id, content);
+            setEditing((prev) => ({
+              ...prev,
+              skills: prev.skills.includes(id) ? prev.skills : [...prev.skills, id],
+            }));
+            if (selectedStepId) {
+              const step = editing.steps.find((s) => s.id === selectedStepId);
+              if (step && !step.skills.includes(id)) {
+                updateStep(selectedStepId, { skills: [...step.skills, id] });
+              }
             }
+            setShowSkillModal(false);
           }}
+          onCancel={() => setShowSkillModal(false)}
         />
       )}
     </div>
