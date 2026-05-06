@@ -1,0 +1,74 @@
+name: "Full SDLC"
+version: "1.0"
+description: "Idea-to-report full software development lifecycle"
+
+execution:
+  mode: sequential
+  defaultLoop: task
+
+steps:
+  - id: brainstorm
+    name: "Brainstorm"
+    agent: idea-expander
+    model: claude-sonnet-4-20250514
+    gate: true
+    maxRetries: 3
+    artifact: idea.md
+    tags: [product]
+
+  - id: requirements
+    name: "Requirements"
+    agent: requirements-engineer
+    model: claude-opus-4-20250514
+    gate: true
+    maxRetries: 3
+    artifact: requirements.md
+    tags: [product]
+
+  - id: design
+    name: "Technical Design"
+    agent: architect
+    model: claude-opus-4-20250514
+    gate: true
+    maxRetries: 3
+    artifact: design.md
+    tags: [technical]
+
+  - id: tasks
+    name: "Task Generation"
+    agent: task-generator
+    model: claude-sonnet-4-20250514
+    gate: true
+    maxRetries: 3
+    artifact: tasks.md
+    tags: [technical]
+
+  - id: implementation
+    name: "Implementation"
+    agent: executor
+    model: claude-sonnet-4-20250514
+    gate: false
+    loop:
+      mode: task
+      agent: critic
+      maxIterations: 3
+    artifact: tasks.md
+    tags: [code]
+
+  - id: test-generation
+    name: "Test Generation"
+    agent: test-writer
+    model: claude-sonnet-4-20250514
+    gate: true
+    maxRetries: 3
+    artifact: tests.md
+    tags: [quality]
+
+  - id: report
+    name: "Summary Report"
+    agent: reporter
+    model: claude-sonnet-4-20250514
+    gate: false
+    maxRetries: 2
+    artifact: report.md
+    tags: [documentation]

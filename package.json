@@ -1,0 +1,147 @@
+{
+  "name": "specflow-cursor",
+  "displayName": "AIDLC",
+  "description": "AI Development Life Cycle pipeline inside Cursor — customizable SDLC with agent orchestration",
+  "version": "0.2.0",
+  "publisher": "specflow",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:specflow.openPanel",
+    "onCommand:specflow.newSpec",
+    "onCommand:specflow.startRun"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aidlc",
+          "title": "AIDLC",
+          "icon": "$(symbol-ruler)"
+        }
+      ]
+    },
+    "views": {
+      "aidlc": [
+        {
+          "id": "aidlc.actions",
+          "name": "Actions"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "specflow.openPanel",
+        "title": "AIDLC: Open Pipeline",
+        "icon": "$(symbol-ruler)"
+      },
+      {
+        "command": "specflow.newSpec",
+        "title": "AIDLC: Start New Pipeline",
+        "icon": "$(add)"
+      },
+      {
+        "command": "specflow.startRun",
+        "title": "AIDLC: Run Pipeline"
+      },
+      {
+        "command": "specflow.approvePhase",
+        "title": "AIDLC: Approve Current Step"
+      },
+      {
+        "command": "specflow.rejectPhase",
+        "title": "AIDLC: Reject Current Step"
+      },
+      {
+        "command": "specflow.openArtifact",
+        "title": "AIDLC: Open Artifact"
+      },
+      {
+        "command": "specflow.showDecisionLog",
+        "title": "AIDLC: Show Decision Log"
+      }
+    ],
+    "configuration": {
+      "title": "AIDLC",
+      "properties": {
+        "specflow.apiKey": {
+          "type": "string",
+          "description": "Anthropic API key (fallback only — not needed when running inside Cursor IDE)",
+          "default": ""
+        },
+        "specflow.model": {
+          "type": "string",
+          "description": "Model for agents (only used with Anthropic fallback; Cursor SDK uses composer-2)",
+          "default": "composer-2",
+          "enum": [
+            "composer-2",
+            "claude-sonnet-4-20250514",
+            "claude-opus-4-20250514",
+            "claude-3-5-sonnet-20241022"
+          ]
+        },
+        "specflow.maxTokens": {
+          "type": "number",
+          "description": "Maximum tokens per agent response",
+          "default": 8192
+        },
+        "specflow.autoApproveYolo": {
+          "type": "boolean",
+          "description": "Automatically approve YOLO tasks without user confirmation",
+          "default": false
+        },
+        "specflow.gitignoreArtifacts": {
+          "type": "boolean",
+          "description": "Add .aidlc/ to .gitignore (default: false — artifacts are committed)",
+          "default": false
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "npm run build:extension && npm run build:panel",
+    "build:extension": "tsup src/extension.ts src/extension/engine-bridge.ts src/engine/index.ts src/engine/pipeline/schema.ts src/engine/pipeline/loader.ts src/engine/pipeline/validator.ts src/engine/orchestrator/state-machine.ts src/engine/orchestrator/sequential.ts src/engine/orchestrator/loop-orchestrator.ts src/engine/runner/step-runner.ts src/engine/runner/auto-reviewer.ts src/engine/runner/loop-manager.ts src/engine/runner/cascade-reject.ts src/engine/agents/builtins.ts src/engine/agents/registry.ts src/engine/artifacts/skill-loader.ts --external vscode --external @cursor/sdk --format cjs --out-dir dist --clean",
+    "build:panel": "vite build",
+    "dev": "concurrently \"npm run dev:extension\" \"npm run dev:panel\"",
+    "dev:extension": "tsup src/extension.ts src/extension/engine-bridge.ts src/engine/index.ts src/engine/pipeline/schema.ts src/engine/pipeline/loader.ts src/engine/pipeline/validator.ts src/engine/orchestrator/state-machine.ts src/engine/orchestrator/sequential.ts src/engine/orchestrator/loop-orchestrator.ts src/engine/runner/step-runner.ts src/engine/runner/auto-reviewer.ts src/engine/runner/loop-manager.ts src/engine/runner/cascade-reject.ts src/engine/agents/builtins.ts src/engine/agents/registry.ts src/engine/artifacts/skill-loader.ts --external vscode --external @cursor/sdk --format cjs --out-dir dist --watch",
+    "dev:panel": "vite build --watch",
+    "lint": "eslint src",
+    "test": "vitest",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@cursor/sdk": "^1.0.12",
+    "@xyflow/react": "^12.10.2",
+    "gray-matter": "^4.0.3",
+    "marked": "^15.0.4",
+    "uuid": "^11.1.0",
+    "yaml": "^2.7.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/uuid": "^10.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.0",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.0.0",
+    "postcss": "^8.4.49",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vitest": "^2.1.0"
+  }
+}

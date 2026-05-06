@@ -1,0 +1,28 @@
+{
+  "projectName": "think about a modern movie streaming app which sta",
+  "currentPhase": "brainstorm",
+  "phases": {
+    "brainstorm": "in-review",
+    "requirements": "draft",
+    "plan": "draft",
+    "tasks": "draft",
+    "execute": "draft",
+    "complete": "draft"
+  },
+  "tasks": [],
+  "decisions": [
+    {
+      "id": "D1777836547959",
+      "timestamp": "2026-05-03T19:29:07.959Z",
+      "type": "phase_rejected",
+      "summary": "brainstorm phase rejected",
+      "detail": "Rejected by latiosthinh@live.com. Agent can be re-run.",
+      "phase": "brainstorm"
+    }
+  ],
+  "totalCost": 0,
+  "totalTokens": 0,
+  "branch": "main",
+  "createdAt": "2026-05-03T19:18:55.711Z",
+  "updatedAt": "2026-05-03T19:29:21.357Z"
+}
