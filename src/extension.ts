@@ -375,25 +375,158 @@ export function activate(context: vscode.ExtensionContext) {
 
   // ── Sidebar action tree ──────────────────────────────────
 
+  const iconPath = (name: string) => vscode.Uri.joinPath(context.extensionUri, "media", "icons", name);
+
   class ActionTreeProvider implements vscode.TreeDataProvider<ActionItem> {
     getTreeItem(element: ActionItem): vscode.TreeItem {
       return element;
     }
     getChildren(): ActionItem[] {
       return [
-        new ActionItem("Open Pipeline", "specflow.openPanel", "$(pipeline)"),
-        new ActionItem("Run Pipeline", "specflow.startRun", "$(zap)"),
-        new ActionItem("Approve Step", "specflow.approvePhase", "$(thumbsup)"),
+        new ActionItem("Open Pipeline", "specflow.openPanel", iconPath("open-pipeline.svg")),
+        new ActionItem("Run Pipeline", "specflow.startRun", iconPath("run-pipeline.svg")),
+        new ActionItem("Approve Step", "specflow.approvePhase", iconPath("approve-step.svg")),
+        new ActionItem("Settings", "specflow.openSettings", iconPath("settings.svg")),
       ];
     }
   }
 
   class ActionItem extends vscode.TreeItem {
-    constructor(label: string, command: string, icon: string) {
+    constructor(label: string, command: string, icon: vscode.Uri | string) {
       super(label, vscode.TreeItemCollapsibleState.None);
       this.command = { command, title: label };
-      this.iconPath = new vscode.ThemeIcon(icon);
+      this.iconPath = icon instanceof vscode.Uri ? icon : new vscode.ThemeIcon(icon);
     }
+  }
+
+  // ── Settings Panel ─────────────────────────────────────────
+
+  let settingsPanel: vscode.WebviewPanel | undefined;
+
+  function showSettings() {
+    if (settingsPanel) {
+      settingsPanel.reveal(vscode.ViewColumn.One);
+      return;
+    }
+
+    settingsPanel = vscode.window.createWebviewPanel(
+      "aidlc.settings",
+      "AIDLC Settings",
+      vscode.ViewColumn.One,
+      { enableScripts: true, retainContextWhenHidden: true },
+    );
+
+    const config = vscode.workspace.getConfiguration("specflow");
+    const apiKey = config.get("apiKey", "");
+    const model = config.get("model", "composer-2");
+    const maxTokens = config.get("maxTokens", 8192);
+    const autoApprove = config.get("autoApproveYolo", false);
+
+    settingsPanel.webview.html = getSettingsHtml(apiKey, model, maxTokens, autoApprove);
+
+    settingsPanel.webview.onDidReceiveMessage(async (msg) => {
+      switch (msg.type) {
+        case "save": {
+          await config.update("apiKey", msg.apiKey, vscode.ConfigurationTarget.Workspace);
+          await config.update("model", msg.model, vscode.ConfigurationTarget.Workspace);
+          await config.update("maxTokens", msg.maxTokens, vscode.ConfigurationTarget.Workspace);
+          await config.update("autoApproveYolo", msg.autoApprove, vscode.ConfigurationTarget.Workspace);
+          settingsPanel?.webview.postMessage({ type: "saved" });
+          break;
+        }
+      }
+    }, undefined, context.subscriptions);
+
+    settingsPanel.onDidDispose(() => { settingsPanel = undefined; }, null, context.subscriptions);
+  }
+
+  function getSettingsHtml(apiKey: string, model: string, maxTokens: number, autoApprove: boolean): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #09090b; --card: #18181b; --border: #27272a;
+      --fg: #fafafa; --muted: #a1a1aa; --primary: #fafafa;
+      --input: #18181b; --ring: #52525b;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--fg); padding: 24px; }
+    h2 { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .field input[type="text"], .field input[type="password"], .field input[type="number"], .field select {
+      width: 100%; padding: 8px 10px; background: var(--input); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--fg); font-size: 13px; outline: none;
+    }
+    .field input:focus, .field select:focus { border-color: var(--ring); }
+    .field .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .checkbox { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .checkbox input { accent-color: var(--primary); }
+    .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; }
+    .btn-primary { background: var(--primary); color: var(--bg); }
+    .btn-primary:hover { opacity: 0.9; }
+    .saved-msg { color: #4ade80; font-size: 12px; margin-left: 8px; opacity: 0; transition: opacity 0.3s; }
+    .saved-msg.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <h2>AIDLC Settings</h2>
+
+  <div class="field">
+    <label>Cursor API Key</label>
+    <input type="password" id="apiKey" value="${apiKey}" placeholder="Enter your Cursor API key" />
+    <div class="hint">Used for agent authentication when running outside Cursor IDE</div>
+  </div>
+
+  <div class="field">
+    <label>Model</label>
+    <select id="model">
+      <option value="composer-2" ${model === "composer-2" ? "selected" : ""}>composer-2</option>
+      <option value="claude-sonnet-4-20250514" ${model === "claude-sonnet-4-20250514" ? "selected" : ""}>claude-sonnet-4</option>
+      <option value="claude-opus-4-20250514" ${model === "claude-opus-4-20250514" ? "selected" : ""}>claude-opus-4</option>
+      <option value="claude-3-5-sonnet-20241022" ${model === "claude-3-5-sonnet-20241022" ? "selected" : ""}>claude-3.5-sonnet</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Max Tokens</label>
+    <input type="number" id="maxTokens" value="${maxTokens}" min="1024" max="64000" />
+  </div>
+
+  <div class="field">
+    <div class="checkbox">
+      <input type="checkbox" id="autoApprove" ${autoApprove ? "checked" : ""} />
+      <label for="autoApprove">Auto-approve YOLO tasks</label>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="save()">Save Settings</button>
+  <span class="saved-msg" id="savedMsg">Saved!</span>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+    function save() {
+      vscode.postMessage({
+        type: "save",
+        apiKey: document.getElementById("apiKey").value,
+        model: document.getElementById("model").value,
+        maxTokens: parseInt(document.getElementById("maxTokens").value),
+        autoApprove: document.getElementById("autoApprove").checked,
+      });
+    }
+    window.addEventListener("message", (e) => {
+      if (e.data.type === "saved") {
+        const msg = document.getElementById("savedMsg");
+        msg.classList.add("show");
+        setTimeout(() => msg.classList.remove("show"), 2000);
+      }
+    });
+  </script>
+</body>
+</html>`;
   }
 
   const actionTree = vscode.window.createTreeView("aidlc.actions", {
@@ -419,6 +552,9 @@ export function activate(context: vscode.ExtensionContext) {
   );
   context.subscriptions.push(
     vscode.commands.registerCommand("specflow.newSpec", () => showPanel()),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("specflow.openSettings", () => showSettings()),
   );
 }
 

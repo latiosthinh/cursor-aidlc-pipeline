@@ -65,6 +65,10 @@
       {
         "command": "specflow.showDecisionLog",
         "title": "AIDLC: Show Decision Log"
+      },
+      {
+        "command": "specflow.openSettings",
+        "title": "AIDLC: Open Settings"
       }
     ],
     "configuration": {
