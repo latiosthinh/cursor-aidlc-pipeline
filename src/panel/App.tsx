@@ -112,7 +112,7 @@ export default function App() {
         {!hasState && !agentStatus ? (
           <PipelineSelector
             pipelines={pipelines}
-            onStart={(pipeline) => postMessage({ type: "startRun", pipeline })}
+            onStart={(pipeline, idea) => postMessage({ type: "startRun", pipeline, idea })}
             onEdit={handleEditPipeline}
             onCreate={() => postMessage({ type: "createPipeline" })}
           />

@@ -66,11 +66,11 @@ class PipelinePanel {
 
   // ── Public command handlers ────────────────────────────────
 
-  private async _handleStartRunFromMessage(pipelineName?: string): Promise<void> {
+  private async _handleStartRunFromMessage(pipelineName?: string, idea?: string): Promise<void> {
     if (pipelineName) {
       try {
         const pipeline = this._bridge.selectPipeline(pipelineName);
-        await this._bridge.startRun(pipelineName, pipeline);
+        await this._bridge.startRun(pipelineName, pipeline, idea);
       } catch (err: any) {
         vscode.window.showErrorMessage(`Pipeline error: ${err.message}`);
       }
@@ -155,7 +155,7 @@ class PipelinePanel {
         this._handleInit();
         break;
       case "startRun":
-        await this._handleStartRunFromMessage(msg.pipeline as string | undefined);
+        await this._handleStartRunFromMessage(msg.pipeline as string | undefined, msg.idea as string | undefined);
         break;
       case "approveStep":
         await this.handleApproveStep();

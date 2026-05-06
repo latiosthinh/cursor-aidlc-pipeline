@@ -77,6 +77,7 @@ export class EngineBridge {
   private currentRun: PipelineRunState | null = null;
   private abortController: AbortController | null = null;
   private log: vscode.LogOutputChannel;
+  private gateResolvers: Map<string, (approved: boolean) => void> = new Map();
 
   constructor(config: BridgeConfig, log: vscode.LogOutputChannel) {
     this.config = config;
@@ -169,7 +170,7 @@ export class EngineBridge {
     this.agentRegistry.syncBuiltinsToDisk();
   }
 
-  async startRun(pipelineName: string, pipeline: PipelineDefinition): Promise<void> {
+  async startRun(pipelineName: string, pipeline: PipelineDefinition, idea?: string): Promise<void> {
     const runId = `run-${Date.now()}`;
     this.runStore.ensureRunDir(runId);
 
@@ -187,7 +188,9 @@ export class EngineBridge {
       status: "idle",
       currentStepId: null,
       steps,
-      decisions: [],
+      decisions: idea
+        ? [{ id: `D${Date.now()}`, timestamp: new Date().toISOString(), type: "run_started", summary: idea, stepId: undefined }]
+        : [],
       loopStack: [],
     };
 
@@ -202,6 +205,21 @@ export class EngineBridge {
         cwd: this.config.workspaceRoot,
         runner: runner.runner,
         agentRegistry: this.agentRegistry,
+        waitForGate: async (stepId: string) => {
+          await new Promise<void>((resolve) => {
+            this.gateResolvers.set(stepId, (approved: boolean) => {
+              this.gateResolvers.delete(stepId);
+              if (approved) {
+                this.machine.transitionStep(this.currentRun!, stepId, "approved");
+              } else {
+                this.machine.transitionStep(this.currentRun!, stepId, "rejected");
+              }
+              this.runStore.saveState(this.currentRun!);
+              this.emitStateUpdate();
+              resolve();
+            });
+          });
+        },
         onEvent: (event: AgentEvent) => {
           this.config.onAgentEvent(event);
           this.config.onAgentStatus({
@@ -244,6 +262,12 @@ export class EngineBridge {
   }
 
   async handleApproveStep(stepId: string): Promise<void> {
+    const resolver = this.gateResolvers.get(stepId);
+    if (resolver) {
+      resolver(true);
+      return;
+    }
+
     if (!this.currentRun) return;
     const trans = this.machine.transitionStep(this.currentRun, stepId, "approved");
     if (trans.success) {
@@ -276,6 +300,12 @@ export class EngineBridge {
   }
 
   async handleRejectStep(stepId: string): Promise<void> {
+    const resolver = this.gateResolvers.get(stepId);
+    if (resolver) {
+      resolver(false);
+      return;
+    }
+
     if (!this.currentRun) return;
     const trans = this.machine.transitionStep(this.currentRun, stepId, "rejected");
     if (trans.success) {

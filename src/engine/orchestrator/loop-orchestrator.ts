@@ -14,6 +14,8 @@ import { StepRunner, RunnerOptions } from "../runner/step-runner";
 import { AgentRegistry } from "../agents/registry";
 import { PipelineValidator } from "../pipeline/validator";
 import { SkillLoader } from "../artifacts/skill-loader";
+import * as path from "path";
+import * as fs from "fs";
 
 export interface OrchestratorConfig {
   cwd: string;
@@ -21,6 +23,7 @@ export interface OrchestratorConfig {
   agentRegistry: AgentRegistry;
   onEvent: RunnerOptions["onEvent"];
   onDecision: (d: Decision) => void;
+  waitForGate: (stepId: string) => Promise<void>;
   signal?: AbortSignal;
 }
 
@@ -46,7 +49,7 @@ export class LoopOrchestrator {
     run: PipelineRunState,
     config: OrchestratorConfig,
   ): Promise<void> {
-    const { cwd, runner, agentRegistry, onEvent, onDecision, signal } = config;
+    const { cwd, runner, agentRegistry, onEvent, onDecision, waitForGate, signal } = config;
     this.skillLoader = new SkillLoader(cwd);
 
     const issues = this.validator.validate(pipeline);
@@ -169,13 +172,44 @@ export class LoopOrchestrator {
         ? this.skillLoader.buildContext(stepDef.skills)
         : "";
 
+      // Collect previous artifacts as context
+      const artifacts: Record<string, { frontmatter: Record<string, unknown>; body: string }> = {
+        "system-prompt": { frontmatter: {}, body: systemPrompt },
+      };
+      const ideaDecision = run.decisions.find((d) => d.type === "run_started");
+      const idea = ideaDecision?.summary ?? "";
+
+      for (const prevStep of pipeline.steps) {
+        if (prevStep.id === stepDef.id) break;
+        const prevState = run.steps[prevStep.id];
+        if (!prevState) continue;
+        const artifactPath = path.join(cwd, ".aidlc/runs", run.runId, "steps", prevStep.id, "latest.md");
+        try {
+          const content = fs.readFileSync(artifactPath, "utf-8");
+          artifacts[prevStep.artifact || prevStep.id] = { frontmatter: {}, body: content };
+        } catch { /* no artifact yet */ }
+      }
+
+      onEvent({
+        type: "progress",
+        stepId,
+        content: `Sending context with ${Object.keys(artifacts).length - 1} prior artifact(s)`,
+        timestamp: new Date().toISOString(),
+      });
+
       const result = await runner.run(stepDef, {
         cwd,
         model: stepDef.model,
-        idea: run.decisions.find((d) => d.type === "run_started")?.summary ?? "",
-        artifacts: { "system-prompt": { frontmatter: {}, body: systemPrompt } },
+        idea,
+        artifacts,
         skillsContext,
       }, { cwd, onEvent, signal });
+
+      // ── Save artifact to disk ────────────────────────────
+      const artifactDir = path.join(cwd, ".aidlc/runs", run.runId, "steps", stepDef.id);
+      fs.mkdirSync(artifactDir, { recursive: true });
+      fs.writeFileSync(path.join(artifactDir, "latest.md"), result, "utf-8");
+      stepState.outputArtifact = path.join(".aidlc/runs", run.runId, "steps", stepDef.id, "latest.md");
 
       // ── Auto-review ──────────────────────────────────────
       const review = await this.reviewer.review(stepId, stepState, result);
@@ -243,13 +277,21 @@ export class LoopOrchestrator {
       // ── Handle gate / wrap up step ──────────────────────
       if (stepDef.gate && review.verdict === "pass") {
         this.machine.transitionStep(run, stepId, "in_review");
-        // Wait for human approval (external)
         onEvent({
           type: "progress",
           stepId,
           content: `Awaiting human review for "${stepDef.name}"...`,
           timestamp: new Date().toISOString(),
         });
+        onDecision({
+          id: `D${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          type: "user_note",
+          summary: `Step "${stepDef.name}" awaiting human approval`,
+          stepId,
+        });
+        // Wait for human to approve/reject via the extension
+        await waitForGate(stepId);
       } else if (review.verdict === "pass") {
         this.machine.transitionStep(run, stepId, "approved");
       } else {
