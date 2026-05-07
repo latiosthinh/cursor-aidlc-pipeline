@@ -49,6 +49,94 @@ export interface PipelineEditorProps {
 
 const nodeTypes = { stepNode: StepNode };
 
+interface AgentTemplate {
+  label: string;
+  agent: string;
+  name: string;
+  gate: boolean;
+  artifact: string;
+  tags: string[];
+  skills: string[];
+  loop?: DagStep["loop"];
+}
+
+const AGENT_TEMPLATES: AgentTemplate[] = [
+  {
+    label: "💡 Brainstorm",
+    agent: "idea-expander",
+    name: "Brainstorm",
+    gate: true,
+    artifact: "idea.md",
+    tags: ["product"],
+    skills: ["brainstorming-frameworks"],
+  },
+  {
+    label: "📋 Requirements",
+    agent: "requirements-engineer",
+    name: "Requirements",
+    gate: true,
+    artifact: "requirements.md",
+    tags: ["product"],
+    skills: ["requirements-specification"],
+  },
+  {
+    label: "🏗️ Architecture",
+    agent: "architect",
+    name: "Technical Design",
+    gate: true,
+    artifact: "design.md",
+    tags: ["technical"],
+    skills: ["software-architecture"],
+  },
+  {
+    label: "✅ Task Define",
+    agent: "task-generator",
+    name: "Task Generation",
+    gate: true,
+    artifact: "tasks.md",
+    tags: ["technical"],
+    skills: ["task-decomposition"],
+    loop: { mode: "task", agent: "critic", maxIterations: 3 },
+  },
+  {
+    label: "🔧 Implementation",
+    agent: "executor",
+    name: "Implementation",
+    gate: false,
+    artifact: "implementation.md",
+    tags: ["code"],
+    skills: ["react-best-practices", "typescript-best-practices", "cursor-sdk-patterns"],
+    loop: { mode: "task", agent: "critic", maxIterations: 3 },
+  },
+  {
+    label: "🔍 Code Review",
+    agent: "critic",
+    name: "Code Review",
+    gate: true,
+    artifact: "review.md",
+    tags: ["quality"],
+    skills: ["code-review-guidelines"],
+  },
+  {
+    label: "🧪 Testing",
+    agent: "test-writer",
+    name: "Test Generation",
+    gate: true,
+    artifact: "tests.md",
+    tags: ["quality"],
+    skills: ["testing-strategies"],
+  },
+  {
+    label: "📝 Report",
+    agent: "reporter",
+    name: "Summary Report",
+    gate: false,
+    artifact: "report.md",
+    tags: ["documentation"],
+    skills: [],
+  },
+];
+
 function buildLayout(steps: DagStep[]): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = steps.map((step, i) => ({
     id: step.id,
@@ -97,6 +185,7 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(data.name);
   const [showSkillModal, setShowSkillModal] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildLayout(editing.steps), [editing.steps]);
 
@@ -157,6 +246,7 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
 
   const onPaneClick = useCallback(() => {
     setSelectedStepId(null);
+    setAddMenuOpen(false);
   }, []);
 
   const selectedStep = useMemo(
@@ -171,7 +261,7 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
     }));
   }, []);
 
-  const addStep = useCallback(() => {
+  const addStep = useCallback((template: AgentTemplate) => {
     const newId = `step-${Date.now()}`;
     setEditing((prev) => ({
       ...prev,
@@ -179,19 +269,21 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
         ...prev.steps,
         {
           id: newId,
-          name: "New Step",
-          agent: prev.agents[0] ?? "executor",
-          model: "claude-sonnet-4-20250514",
-          gate: true,
+          name: template.name,
+          agent: template.agent,
+          model: "composer-2",
+          gate: template.gate,
           maxRetries: 3,
-          artifact: `${newId}.md`,
-          tags: [],
+          artifact: template.artifact,
+          tags: template.tags,
           depends_on: prev.steps.length > 0 ? [prev.steps[prev.steps.length - 1].id] : [],
-          skills: [],
+          skills: template.skills,
+          loop: template.loop ?? null,
         },
       ],
     }));
     setSelectedStepId(newId);
+    setAddMenuOpen(false);
   }, []);
 
   const removeStep = useCallback((id: string) => {
@@ -275,11 +367,28 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={addStep} className="btn-secondary h-7 text-xs gap-1.5">
+            <button onClick={() => setAddMenuOpen(!addMenuOpen)} className="btn-secondary h-7 text-xs gap-1.5 relative">
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
               Add Step
+              {addMenuOpen && (
+                <div
+                  className="absolute top-full right-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {AGENT_TEMPLATES.map((t) => (
+                    <button
+                      key={t.agent}
+                      onClick={() => addStep(t)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-primary/10 transition-colors text-left"
+                    >
+                      <span className="flex-1">{t.label}</span>
+                      <span className="text-muted-foreground text-[10px]">{t.tags[0]}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </button>
             <button onClick={handleSave} className="btn-primary h-7 text-xs gap-1.5">
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
