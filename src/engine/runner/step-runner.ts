@@ -65,7 +65,13 @@ export class CursorSdkStepRunner implements StepRunner {
     }
 
     let accumulatedText = "";
-    let lastWriteFile: string | null = null;
+    const toolCalls: { name: string; args: any; result: string }[] = [];
+    const beforeFiles = new Set<string>();
+    try {
+      for (const f of fs.readdirSync(cwd)) {
+        if (f.endsWith(".md")) beforeFiles.add(f);
+      }
+    } catch { /* ignore */ }
 
     try {
       for await (const msg of run.stream()) {
@@ -92,7 +98,8 @@ export class CursorSdkStepRunner implements StepRunner {
                 accumulatedText += block.text;
                 emit("text", block.text);
               } else if (block.type === "tool_use") {
-                emit("tool_use", `Using: ${block.name}`, { toolName: block.name });
+                emit("tool_use", `Using: ${block.name}`, { toolName: block.name, args: block.input });
+                toolCalls.push({ name: block.name, args: block.input, result: "" });
               }
             }
             break;
@@ -109,10 +116,8 @@ export class CursorSdkStepRunner implements StepRunner {
                 toolName: toolMsg.name,
                 resultLength: typeof toolMsg.result === "string" ? toolMsg.result.length : 0,
               });
-              // Track write_file calls to read back the artifact
-              if ((toolMsg.name === "write" || toolMsg.name === "write_file") && toolMsg.args?.filePath) {
-                lastWriteFile = toolMsg.args.filePath;
-              }
+              const idx = toolCalls.findIndex(t => t.name === toolMsg.name && !t.result);
+              if (idx >= 0) toolCalls[idx].result = typeof toolMsg.result === "string" ? toolMsg.result : JSON.stringify(toolMsg.result);
             } else if (toolMsg.status === "error") {
               emit("error", `Tool error: ${toolMsg.name}`, { toolName: toolMsg.name });
             }
@@ -139,27 +144,59 @@ export class CursorSdkStepRunner implements StepRunner {
 
     let result = accumulatedText;
 
-    // If agent produced no text but wrote a file, read it back
-    if (!result && lastWriteFile) {
-      try {
-        const filePath = path.isAbsolute(lastWriteFile) ? lastWriteFile : path.join(cwd, lastWriteFile);
-        if (fs.existsSync(filePath)) {
-          result = fs.readFileSync(filePath, "utf-8");
-          emit("progress", `Read back artifact from ${lastWriteFile} (${result.length} chars)`);
+    // If no text output, scan for new/modified .md files the agent created
+    if (!result) {
+      // Try files the agent may have written via tools
+      for (const tc of toolCalls) {
+        const writeNames = ["write", "write_file", "edit", "create_file", "save"];
+        if (writeNames.includes(tc.name) && tc.args) {
+          const filePath = tc.args.filePath || tc.args.path || tc.args.file || tc.args.filename || tc.args.target_file;
+          if (filePath) {
+            try {
+              const fullPath = path.isAbsolute(filePath) ? filePath : path.join(cwd, filePath);
+              if (fs.existsSync(fullPath)) {
+                const content = fs.readFileSync(fullPath, "utf-8");
+                if (content.trim().length > 0) {
+                  result = content;
+                  emit("progress", `Read agent-written file: ${filePath} (${result.length} chars)`);
+                  break;
+                }
+              }
+            } catch { /* ignore */ }
+          }
         }
-      } catch { /* file not readable */ }
+      }
+
+      // Fallback: find any new .md file created during the run
+      if (!result) {
+        try {
+          for (const f of fs.readdirSync(cwd)) {
+            if (f.endsWith(".md") && !beforeFiles.has(f)) {
+              const fullPath = path.join(cwd, f);
+              const content = fs.readFileSync(fullPath, "utf-8");
+              if (content.trim().length > 0) {
+                result = content;
+                emit("progress", `Discovered new artifact: ${f} (${result.length} chars)`);
+                break;
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Last resort: try step.artifact
+      if (!result) {
+        const artifactPath = path.join(cwd, step.artifact);
+        try {
+          if (fs.existsSync(artifactPath)) {
+            result = fs.readFileSync(artifactPath, "utf-8");
+            emit("progress", `Read artifact fallback: ${step.artifact} (${result.length} chars)`);
+          }
+        } catch { /* ignore */ }
+      }
     }
 
-    // Fallback: look for the step's expected artifact file
-    if (!result) {
-      const artifactPath = path.join(cwd, step.artifact);
-      try {
-        if (fs.existsSync(artifactPath)) {
-          result = fs.readFileSync(artifactPath, "utf-8");
-          emit("progress", `Read back artifact from ${step.artifact} (${result.length} chars)`);
-        }
-      } catch { /* file not readable */ }
-    }
+    emit("progress", `Total events: ${toolCalls.length} tool calls, ${result.length} chars output`);
 
     emit("cost", `Task complete`, { duration: 0 });
     emit("done", `"${step.name}" complete`);
@@ -180,7 +217,12 @@ export class CursorSdkStepRunner implements StepRunner {
     parts.push(`## Current Context`);
     parts.push(`- Working directory: ${context.cwd}`);
     parts.push(`- Step: ${step.name} (${step.id})`);
+    parts.push(`- Artifact file to produce: ${step.artifact}`);
     parts.push(`- Idea: ${context.idea}`);
+    parts.push("");
+    parts.push(`## Output Instructions`);
+    parts.push(`Use the \`write\` or \`write_file\` tool to save your complete output to \`${step.artifact}\`.`);
+    parts.push(`After writing, also output a brief summary in your response.`);
     parts.push("");
 
     for (const [file, artifact] of Object.entries(context.artifacts)) {
@@ -256,7 +298,10 @@ export class AnthropicStepRunner implements StepRunner {
 
     parts.push(`You are executing step "${step.name}" (${step.id}).`);
     parts.push(`Working directory: ${context.cwd}`);
+    parts.push(`Artifact file to produce: ${step.artifact}`);
     parts.push(`Idea: ${context.idea}`);
+    parts.push("");
+    parts.push(`Write your complete output to the file \`${step.artifact}\` using the write_file tool.`);
     parts.push("");
     for (const [file, artifact] of Object.entries(context.artifacts)) {
       if (artifact.body && file !== "system-prompt") {
