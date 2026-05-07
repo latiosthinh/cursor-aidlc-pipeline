@@ -1,19 +1,8 @@
 import React, { useEffect, useState } from "react";
-
-interface RunSummary {
-  runId: string;
-  pipelineName: string;
-  status: string;
-  idea: string;
-  startedAt: string;
-  stepCount: number;
-  completedSteps: number;
-  currentStepId: string | null;
-  hasGatePending: boolean;
-}
+import type { RunSummaryData } from "../hooks/useExtensionState";
 
 interface RunsListProps {
-  runs: RunSummary[];
+  runs: RunSummaryData[];
   activeRunId: string | null;
   postMessage: (msg: Record<string, unknown>) => void;
   onBack: () => void;
@@ -48,7 +37,7 @@ function formatDate(iso: string): string {
 }
 
 const RunCard: React.FC<{
-  run: RunSummary;
+  run: RunSummaryData;
   active: boolean;
   onSelect: () => void;
   onRerun?: (pipeline: string, idea: string) => void;

@@ -37,7 +37,11 @@ export interface StepViewState {
   model: string;
   agentLabel: string;
   revision: number;
+  artifact?: string;
   error?: string;
+  startedAt?: string;
+  completedAt?: string;
+  tasks?: any[];
 }
 
 export interface BridgeState {
@@ -97,12 +101,12 @@ export type ExtensionMessage =
   | { type: "init"; pipelines: string[]; agents: string[]; skills: string[] }
   | { type: "agentStatus"; status: AgentStatusData | null }
   | { type: "agentEvent"; event: AgentEventData }
-  | { type: "agentComplete"; phase: string }
   | { type: "agentError"; error: string }
   | { type: "decision"; decision: BridgeDecision }
   | { type: "skillList"; skills: string[] }
   | { type: "runList"; runs: RunSummaryData[] }
   | { type: "pipelineList"; pipelines: PipelineDetailData[] }
+  | { type: "pipelineData"; data: any; skills: string[] }
   | { type: "stepLog"; runId: string; stepId: string; content: string | null };
 
 // ── Hook ────────────────────────────────────────────────────
