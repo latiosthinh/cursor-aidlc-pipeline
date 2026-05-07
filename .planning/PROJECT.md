@@ -8,25 +8,22 @@ A Cursor IDE extension that brings a fully customizable AI Development Life Cycl
 
 Users can define, visualize, and execute a fully customizable AI-powered SDLC pipeline inside Cursor — without leaving the editor or writing a single config file by hand.
 
-## Current State (v1.0)
+## Current State (v1.1)
 
-Shipped v1.0 MVP with 17,262 LOC TypeScript across 18 commits. The extension supports:
-- Full pipeline execution with 8 built-in agent types (idea-expander, requirements-engineer, architect, task-generator, executor, critic, reviewer, reporter)
-- Visual pipeline editor using React Flow DAG canvas
-- Task-level and phase-level looping with critic validation
-- Human review gates with approve/reject controls
-- Cascade-reject rollback on step failure
-- Custom agent prompts via `.aidlc/agents/` filesystem
-- Reusable skill context bundles via `.aidlc/skills/`
-
-## Current Milestone: v1.1 Polish + Post-Hackathon
-
-**Goal:** Fix critical issues, harden safety, improve UX, and add power features.
-
-**Target features:**
-- 🔴 Cascade rollback via graph traversal, real model list, AIDLC branding, run_command sandbox
-- 🟡 Deeper reviewer, loop context accumulation, cost budgets, run retention, gate UX, interactive DAG, skill caching
-- 🟢 Parallel DAG execution, resume from step N, dry-run mode, markdown report export
+Shipped v1.1 with all v1.0 features hardened and enhanced. Added:
+- Graph-based cascade rollback (no more hardcoded N-2)
+- Real model selection with freeform override
+- AIDLC branding unification (package, commands, settings)
+- Command allowlist with user confirmation
+- Deeper auto-reviewer (file-existence checks, custom validators)
+- Loop context accumulation across retry iterations
+- Skill version pinning and selective per-agent injection
+- Gate approval UX (timeout, palette commands)
+- Kanban-style DAG layout (snap-to-grid, fixed column)
+- Interactive node tooltips (retry count, artifact access)
+- Parallel DAG execution for independent branches
+- Resume pipeline from crash
+- Dry-run mode with cost estimation
 
 ## Requirements
 
@@ -43,30 +40,31 @@ Shipped v1.0 MVP with 17,262 LOC TypeScript across 18 commits. The extension sup
 - ✓ Artifacts are archived per revision (not overwritten) — v1.0
 - ✓ Agent system prompts live in `.aidlc/agents/` directory for easy customization — v1.0
 - ✓ Users can load custom skills (`.aidlc/skills/`) as reusable context bundles — v1.0
+- ✓ Cascade rollback traverses dependency graph instead of hardcoded N-2 — v1.1
+- ✓ Model enum validated against real models with freeform override — v1.1
+- ✓ Package name and branding unified as AIDLC — v1.1
+- ✓ Agent `run_command` has command allowlist with user confirmation — v1.1
+- ✓ Auto-reviewer supports file-existence checks and custom semantic validators — v1.1
+- ✓ Loop context accumulates critic feedback across all retry iterations — v1.1
+- ✓ Skills have versioning and selective injection per agent — v1.1
+- ✓ Gate approval has defined UX (timeout, panel approval, command palette) — v1.1
+- ✓ Interactive DAG (click node for artifact, hover for retry count) — v1.1
+- ✓ Export pipeline run as markdown report — v1.1
+- ✓ Parallel step execution for independent DAG branches — v1.1
+- ✓ Resume pipeline from step N after crash — v1.1
+- ✓ Pipeline dry-run mode (validate config, resolve dependencies, estimate token cost) — v1.1
 
 ### Active
 
-- [ ] Cascade rollback traverses dependency graph instead of hardcoded N-2
-- [ ] Model enum validated against real models with freeform override
-- [ ] Package name and branding unified as AIDLC
-- [ ] Agent `run_command` has command allowlist with user confirmation
-- [ ] Auto-reviewer supports file-existence checks and custom semantic validators
-- [ ] Loop context accumulates critic feedback across all retry iterations
-- [ ] Pipeline has configurable token/cost budget with pre-run estimate
-- [ ] Run audit log has configurable retention policy
-- [ ] Gate approval has defined UX (timeout, approval from panel/command palette)
-- [ ] Interactive DAG graph (click node for artifact, hover for retry count)
-- [ ] Skills have versioning and selective injection per agent
-- [ ] Parallel step execution for independent DAG branches
-- [ ] Resume pipeline from step N after crash
-- [ ] Pipeline dry-run mode (validate config, estimate cost, no API calls)
-- [ ] Export pipeline run as markdown report
+(None — all defined requirements validated.)
 
 ### Out of Scope
 
-- Full CI/CD integration — MCP server export deferred post-v1
-- Team collaboration features (comments, async review) — deferred post-v1
-- CLI tools (`validate`, `list`, `status`) — deferred post-v1
+- Token/cost budget tracking — deferred post-v1.1
+- Run audit log retention policy — deferred post-v1.1
+- Full CI/CD integration — MCP server export deferred
+- Team collaboration features (comments, async review) — deferred
+- CLI tools (`validate`, `list`, `status`) — deferred
 
 ## Context
 

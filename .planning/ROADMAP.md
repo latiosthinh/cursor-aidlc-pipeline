@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-5 (shipped 2026-05-07)
-- 🔄 **v1.1 Polish + Post-Hackathon** — Phases 6-10 (in progress)
+- ✅ **v1.1 Polish + Post-Hackathon** — Phases 6-10 (shipped 2026-05-07)
 
 ## Phases
 
@@ -111,13 +111,20 @@ Plans:
 
 </details>
 
-## v1.1 Polish + Post-Hackathon (Phases 6-10)
+<details>
+<summary>✅ v1.1 Polish + Post-Hackathon (Phases 6-10) — SHIPPED 2026-05-07</summary>
 
-- [ ] **Phase 6: Engine Hardening** — Graph-based cascade rollback, model validation, command allowlist
-- [ ] **Phase 7: Branding + Deeper Reviewer** — AIDLC rebrand, custom validators, loop context accumulation
-- [ ] **Phase 8: Skills + Gate UX** — Skill versioning and selective injection, gate approval UX
-- [ ] **Phase 9: Interactive DAG** — Interactive DAG exploration, markdown report export
-- [ ] **Phase 10: Power Features** — Parallel DAG execution, resume from crash, dry-run mode
+- [x] Phase 6: Engine Hardening (2 plans) — completed 2026-05-07
+- [x] Phase 7: Branding + Deeper Reviewer (3 plans) — completed 2026-05-07
+- [x] Phase 8: Skills + Gate UX (2 plans) — completed 2026-05-07
+- [x] Phase 9: Interactive DAG (2 plans) — completed 2026-05-07
+- [x] Phase 10: Power Features (3 plans) — completed 2026-05-07
+
+- [x] **Phase 6: Engine Hardening** — Graph-based cascade rollback, model validation, command allowlist
+- [x] **Phase 7: Branding + Deeper Reviewer** — AIDLC rebrand, custom validators, loop context accumulation
+- [x] **Phase 8: Skills + Gate UX** — Skill versioning and selective injection, gate approval UX
+- [x] **Phase 9: Interactive DAG** — Interactive DAG exploration, markdown report export
+- [x] **Phase 10: Power Features** — Parallel DAG execution, resume from crash, dry-run mode
 
 ### Phase 6: Engine Hardening
 **Goal**: Core engine hardened with graph-based cascade rollback, validated model selection, and safe command execution.
@@ -184,8 +191,8 @@ Plans:
 | 3. Extension Shell | v1.0 | 2/2 | Complete | 2026-05-07 |
 | 4. DAG Canvas Editor | v1.0 | 2/2 | Complete | 2026-05-07 |
 | 5. Artifact System + Agent Registry | v1.0 | 2/2 | Complete | 2026-05-07 |
-| 6. Engine Hardening | v1.1 | 0/0 | Not started | — |
-| 7. Branding + Deeper Reviewer | v1.1 | 0/0 | Not started | — |
-| 8. Skills + Gate UX | v1.1 | 0/0 | Not started | — |
-| 9. Interactive DAG | v1.1 | 0/0 | Not started | — |
-| 10. Power Features | v1.1 | 0/0 | Not started | — |
+| 6. Engine Hardening | v1.1 | 2/2 | Complete | 2026-05-07 |
+| 7. Branding + Deeper Reviewer | v1.1 | 3/3 | Complete | 2026-05-07 |
+| 8. Skills + Gate UX | v1.1 | 2/2 | Complete | 2026-05-07 |
+| 9. Interactive DAG | v1.1 | 2/2 | Complete | 2026-05-07 |
+| 10. Power Features | v1.1 | 3/3 | Complete | 2026-05-07 |
