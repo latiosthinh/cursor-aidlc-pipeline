@@ -134,6 +134,10 @@ export default function App() {
             activeRunId={state?.runId ?? null}
             postMessage={postMessage}
             onBack={() => setMode(hasState ? "run" : "start")}
+            onRerun={(pipeline, idea) => {
+              postMessage({ type: "startRun", pipeline, idea });
+              setMode("run");
+            }}
           />
         ) : mode === "pipelines" ? (
           <PipelineListPage
