@@ -19,6 +19,15 @@ Shipped v1.0 MVP with 17,262 LOC TypeScript across 18 commits. The extension sup
 - Custom agent prompts via `.aidlc/agents/` filesystem
 - Reusable skill context bundles via `.aidlc/skills/`
 
+## Current Milestone: v1.1 Polish + Post-Hackathon
+
+**Goal:** Fix critical issues, harden safety, improve UX, and add power features.
+
+**Target features:**
+- 🔴 Cascade rollback via graph traversal, real model list, AIDLC branding, run_command sandbox
+- 🟡 Deeper reviewer, loop context accumulation, cost budgets, run retention, gate UX, interactive DAG, skill caching
+- 🟢 Parallel DAG execution, resume from step N, dry-run mode, markdown report export
+
 ## Requirements
 
 ### Validated
@@ -37,11 +46,24 @@ Shipped v1.0 MVP with 17,262 LOC TypeScript across 18 commits. The extension sup
 
 ### Active
 
-(None — all v1.0 requirements validated.)
+- [ ] Cascade rollback traverses dependency graph instead of hardcoded N-2
+- [ ] Model enum validated against real models with freeform override
+- [ ] Package name and branding unified as AIDLC
+- [ ] Agent `run_command` has command allowlist with user confirmation
+- [ ] Auto-reviewer supports file-existence checks and custom semantic validators
+- [ ] Loop context accumulates critic feedback across all retry iterations
+- [ ] Pipeline has configurable token/cost budget with pre-run estimate
+- [ ] Run audit log has configurable retention policy
+- [ ] Gate approval has defined UX (timeout, approval from panel/command palette)
+- [ ] Interactive DAG graph (click node for artifact, hover for retry count)
+- [ ] Skills have versioning and selective injection per agent
+- [ ] Parallel step execution for independent DAG branches
+- [ ] Resume pipeline from step N after crash
+- [ ] Pipeline dry-run mode (validate config, estimate cost, no API calls)
+- [ ] Export pipeline run as markdown report
 
 ### Out of Scope
 
-- Multi-epic/parallel pipeline runs — single run at a time for MVP
 - Full CI/CD integration — MCP server export deferred post-v1
 - Team collaboration features (comments, async review) — deferred post-v1
 - CLI tools (`validate`, `list`, `status`) — deferred post-v1
@@ -78,6 +100,23 @@ The refactoring decomposes the monolith into two packages: `engine/` (pure TypeS
 | `@xyflow/react` for DAG canvas | Industry standard React node editor, free MIT license | ✓ Good |
 | Cursor SDK primary / Anthropic fallback | Development inside vs outside Cursor IDE | ✓ Good |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
 
-*Last updated: 2026-05-07 after v1.0 milestone*
+*Last updated: 2026-05-07 after v1.1 milestone started*
