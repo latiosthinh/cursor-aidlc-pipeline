@@ -9,6 +9,8 @@ export interface SkillEntry {
   description: string;
   category: string;
   content: string;
+  version?: string;
+  targetAgents?: string[];
 }
 
 export class SkillLoader {
@@ -50,17 +52,49 @@ export class SkillLoader {
     fs.writeFileSync(path.join(dir, `${skillId}.md`), content, "utf-8");
   }
 
+  loadForAgent(agentId: string): SkillEntry[] {
+    return this.loadAll().filter((s) => {
+      if (!s.targetAgents || s.targetAgents.length === 0) return true;
+      return s.targetAgents.includes(agentId);
+    });
+  }
+
   buildContext(skillIds: string[]): string {
     const parts: string[] = [];
     for (const id of skillIds) {
       const skill = this.load(id);
       if (skill) {
-        parts.push(`## Skill: ${skill.label}`);
+        if (skill.version) {
+          parts.push(`## Skill: ${skill.label} v${skill.version}`);
+        } else {
+          parts.push(`## Skill: ${skill.label}`);
+        }
         parts.push(skill.description);
         parts.push("");
         parts.push(skill.content);
         parts.push("");
       }
+    }
+    return parts.join("\n");
+  }
+
+  buildContextForAgent(skillIds: string[], agentId: string): string {
+    const parts: string[] = [];
+    for (const id of skillIds) {
+      const skill = this.load(id);
+      if (!skill) continue;
+      if (skill.targetAgents && skill.targetAgents.length > 0 && !skill.targetAgents.includes(agentId)) {
+        continue;
+      }
+      if (skill.version) {
+        parts.push(`## Skill: ${skill.label} v${skill.version}`);
+      } else {
+        parts.push(`## Skill: ${skill.label}`);
+      }
+      parts.push(skill.description);
+      parts.push("");
+      parts.push(skill.content);
+      parts.push("");
     }
     return parts.join("\n");
   }
@@ -90,19 +124,30 @@ export class SkillLoader {
 
     const fmLines = frontmatterMatch[1].split("\n");
     const body = frontmatterMatch[2].trim();
-    const fm: Record<string, string> = {};
+    const fm: Record<string, any> = {};
 
     for (const line of fmLines) {
       const match = line.match(/^(\w+):\s*(.+)$/);
       if (match) fm[match[1]] = match[2].replace(/^"|"$/g, "");
     }
 
-    return {
+    const entry: SkillEntry = {
       id: fm.id || fallbackId,
       label: fm.label || fm.id || fallbackId,
       description: fm.description || "",
       category: fm.category || "custom",
       content: body,
     };
+
+    if (fm.version) entry.version = fm.version;
+    if (fm.targetAgents) {
+      try {
+        entry.targetAgents = JSON.parse(fm.targetAgents.replace(/'/g, '"'));
+      } catch {
+        entry.targetAgents = fm.targetAgents.split(",").map((s: string) => s.trim());
+      }
+    }
+
+    return entry;
   }
 }

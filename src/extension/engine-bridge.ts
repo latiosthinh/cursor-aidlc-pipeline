@@ -383,6 +383,65 @@ export class EngineBridge {
     return true;
   }
 
+  resumeRun(): boolean {
+    const runs = this.listRuns();
+    const lastIncomplete = runs.find((r) => r.status === "failed" || r.status === "paused");
+    if (!lastIncomplete) {
+      this.log.warn("No incomplete run found to resume");
+      return false;
+    }
+    const state = this.loadRunById(lastIncomplete.runId);
+    if (!state || !this.currentPipeline) return false;
+
+    this.currentRun = state;
+    state.updatedAt = new Date().toISOString();
+
+    const incompleteSteps = this.currentPipeline.steps.filter((s) => {
+      const ss = state.steps[s.id];
+      return !ss || ss.status === "pending" || ss.status === "failed" || ss.status === "rejected";
+    });
+
+    if (incompleteSteps.length === 0) {
+      this.machine.setRunStatus(state, "completed");
+      this.runStore.saveState(state);
+      this.emitStateUpdate();
+      this.log.info("Resume: all steps already complete, marking run completed");
+      return true;
+    }
+
+    this.log.info(`Resume: ${incompleteSteps.length} incomplete steps, restarting from "${incompleteSteps[0].id}"`);
+    this.startRun(lastIncomplete.runId, this.currentPipeline);
+    return true;
+  }
+
+  async runDryRun(pipelineName: string): Promise<{ valid: boolean; issues: string[]; estimatedCost: string; steps: number }> {
+    const pipeline = this.loader.loadPipeline(pipelineName);
+    const { PipelineValidator } = await import("../engine/pipeline/validator");
+    const validator = new PipelineValidator();
+    const issues = validator.validate(pipeline);
+    const errors = issues.filter((i) => i.type === "error");
+
+    let order: string[];
+    try {
+      order = validator.topologicalSort(pipeline);
+    } catch (e: any) {
+      return { valid: false, issues: [e.message], estimatedCost: "N/A", steps: pipeline.steps.length };
+    }
+
+    const totalTokens = pipeline.steps.reduce((sum, s) => {
+      const retries = (s.maxRetries ?? 3) + 1;
+      const iterTokens = 8192;
+      return sum + iterTokens * retries;
+    }, 0);
+
+    return {
+      valid: errors.length === 0,
+      issues: issues.map((i) => `${i.type === "error" ? "ERROR" : "WARN"}: ${i.message}`),
+      estimatedCost: `~${(totalTokens * 0.000015).toFixed(4)} USD (${totalTokens.toLocaleString()} tokens across ${pipeline.steps.length} steps in ${order.length} DAG nodes)`,
+      steps: order.length,
+    };
+  }
+
   loadRun(runId: string): PipelineRunState | null {
     this.currentRun = this.runStore.loadState(runId);
     if (this.currentRun) {

@@ -1,9 +1,9 @@
 {
-  "name": "specflow-cursor",
-  "displayName": "AIDLC",
+  "name": "aidlc",
+  "displayName": "AIDLC Pipeline",
   "description": "AI Development Life Cycle pipeline inside Cursor — customizable SDLC with agent orchestration",
   "version": "0.2.0",
-  "publisher": "specflow",
+  "publisher": "aidlc",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
@@ -12,9 +12,11 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:specflow.openPanel",
-    "onCommand:specflow.newSpec",
-    "onCommand:specflow.startRun"
+    "onCommand:aidlc.openPanel",
+    "onCommand:aidlc.newPipeline",
+    "onCommand:aidlc.startRun",
+    "onCommand:aidlc.approveStep",
+    "onCommand:aidlc.rejectStep"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -37,96 +39,107 @@
     },
     "commands": [
       {
-        "command": "specflow.openPanel",
+        "command": "aidlc.openPanel",
         "title": "AIDLC: Open Pipeline",
         "icon": "$(symbol-ruler)"
       },
       {
-        "command": "specflow.newSpec",
+        "command": "aidlc.newPipeline",
         "title": "AIDLC: Start New Pipeline",
         "icon": "$(add)"
       },
       {
-        "command": "specflow.startRun",
+        "command": "aidlc.startRun",
         "title": "AIDLC: Run Pipeline"
       },
       {
-        "command": "specflow.approvePhase",
+        "command": "aidlc.approveStep",
         "title": "AIDLC: Approve Current Step"
       },
       {
-        "command": "specflow.rejectPhase",
+        "command": "aidlc.rejectStep",
         "title": "AIDLC: Reject Current Step"
       },
       {
-        "command": "specflow.openArtifact",
+        "command": "aidlc.openArtifact",
         "title": "AIDLC: Open Artifact"
       },
       {
-        "command": "specflow.showDecisionLog",
+        "command": "aidlc.showDecisionLog",
         "title": "AIDLC: Show Decision Log"
       },
       {
-        "command": "specflow.openSettings",
+        "command": "aidlc.openSettings",
         "title": "AIDLC: Open Settings"
+      },
+      {
+        "command": "aidlc.resumeRun",
+        "title": "AIDLC: Resume Run"
+      },
+      {
+        "command": "aidlc.dryRun",
+        "title": "AIDLC: Dry-Run Pipeline"
       }
     ],
     "configuration": {
       "title": "AIDLC",
       "properties": {
-        "specflow.apiKey": {
+        "aidlc.apiKey": {
           "type": "string",
           "description": "Anthropic API key (fallback only — not needed when running inside Cursor IDE)",
           "default": ""
         },
-        "specflow.model": {
+        "aidlc.model": {
           "type": "string",
           "description": "Model for agents (only used with Anthropic fallback; Cursor SDK uses composer-2)",
-          "default": "composer-2",
-            "enum": [
-              "default",
-              "composer-2",
-              "composer-1.5",
-              "claude-sonnet-4-6",
-              "claude-sonnet-4-5",
-              "claude-sonnet-4",
-              "claude-opus-4-7",
-              "claude-opus-4-6",
-              "claude-opus-4-5",
-              "claude-haiku-4-5",
-              "gpt-5.5",
-              "gpt-5.4",
-              "gpt-5.4-mini",
-              "gpt-5.4-nano",
-              "gpt-5.2",
-              "gpt-5.1",
-              "gpt-5-mini",
-              "gpt-5.3-codex",
-              "gpt-5.3-codex-spark",
-              "gpt-5.2-codex",
-              "gpt-5.1-codex-max",
-              "gpt-5.1-codex-mini",
-              "gemini-3.1-pro",
-              "gemini-3-flash",
-              "gemini-2.5-flash",
-              "grok-4.3",
-              "kimi-k2.5"
-            ]
+          "default": "claude-sonnet-4-20250514",
+          "enum": [
+            "default",
+            "composer-2",
+            "composer-1.5",
+            "claude-sonnet-4-20250514",
+            "claude-3.5-haiku-20241022",
+            "gpt-4o-2024-11-20",
+            "gpt-4o-mini-2024-07-18",
+            "gemini-2.0-flash-001",
+            "gemini-2.5-pro-exp-03-25"
+          ]
         },
-        "specflow.maxTokens": {
+        "aidlc.modelOverride": {
+          "type": "string",
+          "description": "Freeform model override — if set, takes precedence over the model dropdown. Enter any valid model string for your provider.",
+          "default": ""
+        },
+        "aidlc.maxTokens": {
           "type": "number",
           "description": "Maximum tokens per agent response",
           "default": 8192
         },
-        "specflow.autoApproveYolo": {
+        "aidlc.autoApproveYolo": {
           "type": "boolean",
           "description": "Automatically approve YOLO tasks without user confirmation",
           "default": false
         },
-        "specflow.gitignoreArtifacts": {
+        "aidlc.gitignoreArtifacts": {
           "type": "boolean",
           "description": "Add .aidlc/ to .gitignore (default: false — artifacts are committed)",
           "default": false
+        },
+        "aidlc.gateTimeout": {
+          "type": "number",
+          "description": "Default timeout in seconds for gate approval (0 = no timeout)",
+          "default": 0
+        },
+        "aidlc.allowedCommands": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns for commands agents are allowed to run. Set to [\"*\"] to allow all.",
+          "default": ["ls", "cat", "grep", "find", "head", "tail", "wc", "echo", "mkdir", "touch"]
+        },
+        "aidlc.commandConfirmation": {
+          "type": "boolean",
+          "description": "Require user confirmation before executing any command",
+          "default": true
         }
       }
     }

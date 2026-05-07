@@ -30,7 +30,6 @@ export class CascadeRejector {
 
     if (fromIdx < 0 || targetIdx < 0) return;
 
-    // Mark all steps from target to from for re-execution
     for (let i = targetIdx; i <= fromIdx; i++) {
       const sid = stepIds[i];
       const s = run.steps[sid];
@@ -60,6 +59,72 @@ export class CascadeRejector {
     const fromIdx = stepIds.indexOf(fromStepId);
     const targetIdx = stepIds.indexOf(targetStepId);
     return fromIdx >= 0 && targetIdx >= 0 && targetIdx < fromIdx;
+  }
+
+  findRollbackTarget(
+    failedStepId: string,
+    pipeline: PipelineDefinition,
+  ): string {
+    const depGraph = this.buildDepGraph(pipeline);
+    const stepIds = pipeline.steps.map((s) => s.id);
+    const failedIdx = stepIds.indexOf(failedStepId);
+    if (failedIdx < 0) return failedStepId;
+
+    const consumedBy = new Set<string>();
+    for (const step of pipeline.steps) {
+      for (const dep of step.depends_on) {
+        if (dep === failedStepId) consumedBy.add(step.id);
+      }
+    }
+
+    if (consumedBy.size === 0) {
+      return stepIds[Math.max(0, failedIdx - 1)];
+    }
+
+    const visited = new Set<string>();
+    const queue: string[] = [...consumedBy];
+    const upstreamSet = new Set<string>();
+
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      if (visited.has(cur)) continue;
+      visited.add(cur);
+      for (const dep of depGraph.get(cur) ?? []) {
+        upstreamSet.add(dep);
+        if (!visited.has(dep)) queue.push(dep);
+      }
+    }
+
+    const candidateSet = new Set<string>();
+    for (const upstream of upstreamSet) {
+      const idx = stepIds.indexOf(upstream);
+      if (idx >= 0 && idx < failedIdx) candidateSet.add(upstream);
+    }
+
+    if (candidateSet.size === 0) {
+      return stepIds[Math.max(0, failedIdx - 1)];
+    }
+
+    let best = "";
+    let bestIdx = -1;
+    for (const c of candidateSet) {
+      const idx = stepIds.indexOf(c);
+      if (idx > bestIdx) { best = c; bestIdx = idx; }
+    }
+
+    return best;
+  }
+
+  private buildDepGraph(pipeline: PipelineDefinition): Map<string, string[]> {
+    const graph = new Map<string, string[]>();
+    for (const step of pipeline.steps) {
+      const deps: string[] = [];
+      for (const dep of step.depends_on) {
+        deps.push(dep);
+      }
+      graph.set(step.id, deps);
+    }
+    return graph;
   }
 }
 

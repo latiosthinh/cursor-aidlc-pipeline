@@ -142,7 +142,8 @@ function buildLayout(steps: DagStep[]): { nodes: Node[]; edges: Edge[] } {
     id: step.id,
     type: "stepNode",
     position: { x: 40, y: i * 170 },
-    data: step,
+    data: { ...step, _index: i },
+    draggable: false,
   }));
 
   const edges: Edge[] = [];
@@ -416,6 +417,10 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
             fitView
+            snapToGrid
+            snapGrid={[170, 170]}
+            nodesDraggable={false}
+            nodesConnectable={true}
             deleteKeyCode="Delete"
             onNodesDelete={(deleted) => deleted.forEach((n) => removeStep(n.id))}
             defaultEdgeOptions={{ type: "smoothstep", animated: true }}

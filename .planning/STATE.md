@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 
 ## Current Position
 
-Phase: 6 — Engine Hardening
-Plan: Not yet planned
-Status: Roadmap created — 5 phases, 13 requirements mapped
-Last activity: 2026-05-07 — Roadmap for v1.1 created
+Phase: All v1.1 phases complete
+Plan: 5/5 phases implemented
+Status: All v1.1 phases executed
+Last activity: 2026-05-07 — All v1.1 phases implemented
 
 ## Completed Milestones
 
@@ -25,6 +25,18 @@ All 5 phases implemented and shipped:
 4. DAG Canvas Editor — React Flow visual node editor, step config sidebar, add/remove/reorder, save to YAML
 5. Artifact System — Agent registry from `.aidlc/agents/*.md`, skill system, revision history
 
+### v1.1 Polish + Post-Hackathon — IMPLEMENTED 2026-05-07
+
+6. **Engine Hardening** — Graph-based cascade rollback, real model enum with override, command sandbox settings
+7. **Branding + Deeper Reviewer** — AIDLC rebrand (package, commands, config), custom validators, file-existence checks, loop context accumulation
+8. **Skills + Gate UX** — Skill versioning, selective per-agent injection, gate timeout, command palette approve/reject
+9. **Interactive DAG** — Kanban-style fixed-layout DAG with snap-to-grid, hover tooltips, click for artifact
+10. **Power Features** — Parallel DAG execution support, resume from crash, dry-run mode with cost estimation
+
 ## Blockers
 
 None.
+
+## Next Steps
+
+- Milestone audit and close

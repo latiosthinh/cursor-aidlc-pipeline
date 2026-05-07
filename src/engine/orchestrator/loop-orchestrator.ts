@@ -151,7 +151,7 @@ export class LoopOrchestrator {
           // Check if we need to cascade
           const allPassed = tasks.every((t) => t.status === "passed" || t.status === "paused");
           if (!allPassed && stepState.status !== "approved") {
-            const target = order[Math.max(0, i - 2)] ?? stepId;
+            const target = this.cascadeRejector.findRollbackTarget(stepId, pipeline);
             if (this.cascadeRejector.canCascade(run, stepId, target, pipeline)) {
               this.cascadeRejector.cascadeReject(
                 run, stepId, target,
@@ -171,7 +171,7 @@ export class LoopOrchestrator {
 
       // ── Normal agent execution ───────────────────────────
       const skillsContext = stepDef.skills && stepDef.skills.length > 0
-        ? this.skillLoader.buildContext(stepDef.skills)
+        ? this.skillLoader.buildContextForAgent(stepDef.skills, stepDef.agent)
         : "";
 
       // Collect previous artifacts as context
@@ -214,7 +214,7 @@ export class LoopOrchestrator {
       stepState.outputArtifact = path.join(".aidlc/runs", run.runId, "steps", stepDef.id, "latest.md");
 
       // ── Auto-review ──────────────────────────────────────
-      const review = await this.reviewer.review(stepId, stepState, result);
+      const review = await this.reviewer.review(stepId, stepState, result, undefined, undefined);
       onDecision({
         id: `D${Date.now()}`,
         timestamp: new Date().toISOString(),

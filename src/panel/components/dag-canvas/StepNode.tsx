@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
 const StepNode: React.FC<NodeProps> = ({ data }) => {
   const step = data as any;
   const isGate = step.gate;
+  const [hovered, setHovered] = useState(false);
 
   const tagColor = step.tags?.length
     ? step.tags[0] === "product" ? "#a855f7"
@@ -15,13 +16,16 @@ const StepNode: React.FC<NodeProps> = ({ data }) => {
 
   return (
     <div
-      className="rounded-xl border-2 px-4 py-3 min-w-[220px] transition-all hover:shadow-lg hover:shadow-primary/5"
+      className="rounded-xl border-2 px-4 py-3 min-w-[220px] transition-all hover:shadow-lg hover:shadow-primary/5 relative"
       style={{
         background: "#18181b",
         borderColor: isGate ? tagColor : "#27272a",
         borderStyle: isGate ? "solid" : "solid",
         borderWidth: isGate ? "2px" : "1px",
+        cursor: "pointer",
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <Handle type="target" position={Position.Top} style={{ background: tagColor, width: 8, height: 8, border: "2px solid #18181b" }} />
 
@@ -30,6 +34,9 @@ const StepNode: React.FC<NodeProps> = ({ data }) => {
         <span className="text-sm font-semibold truncate text-zinc-100">
           {step.name}
         </span>
+        {step._index !== undefined && (
+          <span className="text-[10px] text-zinc-600 ml-auto">{step._index + 1}</span>
+        )}
       </div>
 
       <div className="flex flex-col gap-1 text-xs text-zinc-500">
@@ -60,7 +67,20 @@ const StepNode: React.FC<NodeProps> = ({ data }) => {
         {step.loop?.mode && (
           <span className="text-[10px] text-purple-400">↻ {step.loop.mode}</span>
         )}
+        {step.maxRetries !== undefined && step.maxRetries > 0 && (
+          <span className="text-[10px] text-zinc-600">⟳ {step.maxRetries}</span>
+        )}
       </div>
+
+      {hovered && (
+        <div
+          className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded text-[10px] whitespace-nowrap z-50"
+          style={{ background: "#27272a", color: "#a1a1aa" }}
+        >
+          Click to view artifact · Retries: {step.maxRetries ?? 3}
+          {step.loop?.mode ? ` · Loop: ${step.loop.mode}` : ""}
+        </div>
+      )}
 
       <Handle type="source" position={Position.Bottom} style={{ background: tagColor, width: 8, height: 8, border: "2px solid #18181b" }} />
     </div>

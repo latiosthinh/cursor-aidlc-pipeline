@@ -120,6 +120,39 @@ export class PipelineValidator {
 
     return null;
   }
+  findParallelGroups(pipeline: PipelineDefinition): string[][] {
+    const order = this.topologicalSort(pipeline);
+    const adj: Record<string, string[]> = {};
+    const depOf: Record<string, string[]> = {};
+    for (const step of pipeline.steps) {
+      adj[step.id] = step.depends_on ?? [];
+      for (const dep of step.depends_on) {
+        if (!depOf[dep]) depOf[dep] = [];
+        depOf[dep].push(step.id);
+      }
+    }
+
+    const groups: string[][] = [];
+    let currentGroup: string[] = [];
+    const processed = new Set<string>();
+
+    for (const stepId of order) {
+      const hasUnprocessedDep = (adj[stepId] ?? []).some((d) => !processed.has(d));
+      if (hasUnprocessedDep) {
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup);
+          currentGroup = [];
+        }
+        currentGroup = [stepId];
+      } else {
+        currentGroup.push(stepId);
+      }
+      processed.add(stepId);
+    }
+    if (currentGroup.length > 0) groups.push(currentGroup);
+
+    return groups;
+  }
 }
 
 const BUILTIN_AGENT_IDS = new Set([

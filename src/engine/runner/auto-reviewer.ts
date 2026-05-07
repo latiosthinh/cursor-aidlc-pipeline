@@ -1,4 +1,5 @@
 import { StepRunState, ReviewResult, ReviewVerdict } from "../pipeline/schema";
+import * as fs from "fs";
 
 export interface ReviewOptions {
   structuralChecks: StructuralCheck[];
@@ -16,7 +17,30 @@ export interface SemanticResult {
   details: string[];
 }
 
+export interface CustomValidator {
+  name: string;
+  validate: (output: string, context: ValidatorContext) => Promise<ValidatorResult>;
+}
+
+export interface ValidatorContext {
+  stepId: string;
+  workspaceRoot: string;
+  artifactFile: string;
+  referencedFiles: string[];
+}
+
+export interface ValidatorResult {
+  passed: boolean;
+  details: string[];
+}
+
 export class AutoReviewer {
+  private workspaceRoot: string;
+
+  constructor(workspaceRoot?: string) {
+    this.workspaceRoot = workspaceRoot ?? "";
+  }
+
   private defaultStructuralChecks(): StructuralCheck[] {
     return [
       {
@@ -47,6 +71,7 @@ export class AutoReviewer {
     state: StepRunState,
     output: string,
     customChecks?: StructuralCheck[],
+    customValidators?: CustomValidator[],
   ): Promise<ReviewResult> {
     const checks = customChecks ?? this.defaultStructuralChecks();
     const structuralResults: { pass: boolean; message: string }[] = [];
@@ -57,17 +82,43 @@ export class AutoReviewer {
     }
 
     const structuralPass = structuralResults.every((r) => r.pass);
+    const semanticDetails: string[] = [];
 
-    let semanticPass = true;
-    let semanticDetails: string[] = [];
-
-    if (structuralPass && output.length > 100) {
-      // Basic semantic checks
-      if (output.split("\n").length < 5) {
-        semanticPass = false;
-        semanticDetails.push("Output has fewer than 5 lines — likely incomplete");
+    // Run custom validators
+    if (customValidators && customValidators.length > 0) {
+      const artifactFile = state.outputArtifact ?? "";
+      const referencedFiles = this.extractFileReferences(output);
+      const ctx: ValidatorContext = {
+        stepId,
+        workspaceRoot: this.workspaceRoot,
+        artifactFile,
+        referencedFiles,
+      };
+      for (const v of customValidators) {
+        try {
+          const result = await v.validate(output, ctx);
+          if (!result.passed) {
+            semanticDetails.push(...result.details.map((d) => `[${v.name}] ${d}`));
+          }
+        } catch (err: any) {
+          semanticDetails.push(`[${v.name}] Validator threw: ${err.message}`);
+        }
       }
     }
+
+    // Check referenced files exist
+    if (this.workspaceRoot) {
+      for (const refFile of this.extractFileReferences(output)) {
+        const fullPath = refFile.startsWith("/") || refFile.match(/^[A-Z]:/i)
+          ? refFile
+          : `${this.workspaceRoot}/${refFile}`;
+        if (!fs.existsSync(fullPath)) {
+          semanticDetails.push(`Referenced file does not exist: ${refFile}`);
+        }
+      }
+    }
+
+    let semanticPass = semanticDetails.length === 0;
 
     let verdict: ReviewVerdict;
     if (!structuralPass) {
@@ -78,17 +129,37 @@ export class AutoReviewer {
       verdict = "pass";
     }
 
+    const allDetails = [
+      ...structuralResults.map((r) => r.message),
+      ...semanticDetails,
+    ];
+
     return {
       verdict,
       summary: verdict === "pass"
         ? `Auto-review PASSED (${structuralResults.filter((r) => r.pass).length}/${structuralResults.length} checks)`
-        : `Auto-review ${verdict.toUpperCase()}: ${structuralResults.filter((r) => !r.pass).map((r) => r.message).join("; ")}`,
-      details: [
-        ...structuralResults.map((r) => r.message),
-        ...semanticDetails,
-      ],
+        : `Auto-review ${verdict.toUpperCase()}: ${allDetails.join("; ")}`,
+      details: allDetails,
       structuralPass,
       semanticPass,
     };
+  }
+
+  private extractFileReferences(output: string): string[] {
+    const refs: string[] = [];
+    const patterns = [
+      /file[:\s]+"?([^\s"']+\.\w+)"?/gi,
+      /`([^\s`]+\.[a-z]+)`/gi,
+    ];
+    for (const pattern of patterns) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(output)) !== null) {
+        const ref = match[1].trim();
+        if (!ref.startsWith("http") && ref.length > 3) {
+          refs.push(ref);
+        }
+      }
+    }
+    return [...new Set(refs)];
   }
 }

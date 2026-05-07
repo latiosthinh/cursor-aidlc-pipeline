@@ -43,7 +43,7 @@ export const PipelineDefinitionSchema = z.object({
   version: z.string().default("1.0"),
   description: z.string().default(""),
   execution: z.object({
-    mode: z.literal("sequential").default("sequential"),
+    mode: z.enum(["sequential", "parallel"]).default("sequential"),
     defaultLoop: z.enum(["task", "phase", "cascade"]).optional(),
   }).default({ mode: "sequential" }),
   steps: z.array(StepDefinitionSchema).min(1),

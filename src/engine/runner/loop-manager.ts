@@ -24,6 +24,7 @@ export interface TaskLoopOptions {
   onEvent: RunnerOptions["onEvent"];
   signal?: AbortSignal;
   onDecision: (d: Decision) => void;
+  priorCriticFeedback?: string;
 }
 
 export class LoopManager {
@@ -36,7 +37,7 @@ export class LoopManager {
   }
 
   async runTaskLoop(opts: TaskLoopOptions): Promise<void> {
-    const { step, run, stepState, tasks, runner, agentRegistry, cwd, onEvent, signal, onDecision } = opts;
+    const { step, run, stepState, tasks, runner, agentRegistry, cwd, onEvent, signal, onDecision, priorCriticFeedback } = opts;
 
     const loopAgent = step.loop?.agent ?? "critic";
     const maxIterations = step.loop?.maxIterations ?? 3;
@@ -54,11 +55,22 @@ export class LoopManager {
       if (task.status === "passed" || task.status === "paused") continue;
 
       let taskAttempts = 0;
+      let accumulatedFeedback: string[] = [];
 
       while (taskAttempts < maxIterations) {
         if (signal?.aborted) break;
         taskAttempts++;
         frame.iteration = taskAttempts;
+
+        const contextParts: string[] = [];
+        if (accumulatedFeedback.length > 0) {
+          contextParts.push(`Previous ${accumulatedFeedback.length} attempt(s) were rejected. Feedback from all prior rounds:`);
+          for (const fb of accumulatedFeedback) {
+            contextParts.push(`- ${fb}`);
+          }
+          contextParts.push("");
+          contextParts.push("Address ALL of the above feedback in your next attempt.");
+        }
 
         onEvent({
           type: "progress",
@@ -76,13 +88,12 @@ export class LoopManager {
         const result = await runner.run(step, {
           cwd,
           model: step.model,
-          idea: "",
+          idea: contextParts.join("\n"),
           artifacts: { "system-prompt": { frontmatter: {}, body: systemPrompt } },
           tasks,
           currentTask: task,
         }, { cwd, onEvent, signal });
 
-        // ── Critic validation ──────────────────────────────
         const criticDef = agentRegistry.load(loopAgent);
         const criticPrompt = criticDef?.systemPrompt ?? "";
 
@@ -120,12 +131,13 @@ export class LoopManager {
           break;
         } else {
           task.status = "failed";
+          accumulatedFeedback.push(`Attempt ${taskAttempts}: ${review.summary}`);
           onDecision({
             id: `D${Date.now()}`,
             timestamp: new Date().toISOString(),
             type: "task_failed",
             summary: `Task ${task.id} failed critic: ${review.summary}`,
-            detail: review.details.join("\n"),
+            detail: accumulatedFeedback.join("\n---\n"),
             stepId: step.id,
           });
 

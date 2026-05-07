@@ -407,8 +407,9 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(log);
   log.appendLine(`AIDLC activated. Workspace: ${workspaceRoot}`);
 
-  const config = vscode.workspace.getConfiguration("specflow");
+  const config = vscode.workspace.getConfiguration("aidlc");
   const apiKey = config.get("apiKey", "") as string;
+  const modelOverride = config.get("modelOverride", "") as string;
 
   const bridge = new EngineBridge(
     {
@@ -463,10 +464,11 @@ export function activate(context: vscode.ExtensionContext) {
     }
     getChildren(): ActionItem[] {
       return [
-        new ActionItem("Open Pipeline", "specflow.openPanel", iconPath("open-pipeline.svg")),
-        new ActionItem("Run Pipeline", "specflow.startRun", iconPath("run-pipeline.svg")),
-        new ActionItem("Approve Step", "specflow.approvePhase", iconPath("approve-step.svg")),
-        new ActionItem("Settings", "specflow.openSettings", iconPath("settings.svg")),
+        new ActionItem("Open Pipeline", "aidlc.openPanel", iconPath("open-pipeline.svg")),
+        new ActionItem("Run Pipeline", "aidlc.startRun", iconPath("run-pipeline.svg")),
+        new ActionItem("Approve Step", "aidlc.approveStep", iconPath("approve-step.svg")),
+        new ActionItem("Reject Step", "aidlc.rejectStep", iconPath("reject-step.svg")),
+        new ActionItem("Settings", "aidlc.openSettings", iconPath("settings.svg")),
       ];
     }
   }
@@ -496,19 +498,21 @@ export function activate(context: vscode.ExtensionContext) {
       { enableScripts: true, retainContextWhenHidden: true },
     );
 
-    const config = vscode.workspace.getConfiguration("specflow");
+    const config = vscode.workspace.getConfiguration("aidlc");
     const apiKey = config.get("apiKey", "");
-    const model = config.get("model", "composer-2");
+    const model = config.get("model", "claude-sonnet-4-20250514");
+    const modelOverride = config.get("modelOverride", "");
     const maxTokens = config.get("maxTokens", 8192);
     const autoApprove = config.get("autoApproveYolo", false);
 
-    settingsPanel.webview.html = getSettingsHtml(apiKey, model, maxTokens, autoApprove);
+    settingsPanel.webview.html = getSettingsHtml(apiKey, model, modelOverride, maxTokens, autoApprove);
 
     settingsPanel.webview.onDidReceiveMessage(async (msg) => {
       switch (msg.type) {
         case "save": {
           await config.update("apiKey", msg.apiKey, vscode.ConfigurationTarget.Workspace);
           await config.update("model", msg.model, vscode.ConfigurationTarget.Workspace);
+          await config.update("modelOverride", msg.modelOverride, vscode.ConfigurationTarget.Workspace);
           await config.update("maxTokens", msg.maxTokens, vscode.ConfigurationTarget.Workspace);
           await config.update("autoApproveYolo", msg.autoApprove, vscode.ConfigurationTarget.Workspace);
           settingsPanel?.webview.postMessage({ type: "saved" });
@@ -520,7 +524,7 @@ export function activate(context: vscode.ExtensionContext) {
     settingsPanel.onDidDispose(() => { settingsPanel = undefined; }, null, context.subscriptions);
   }
 
-  function getSettingsHtml(apiKey: string, model: string, maxTokens: number, autoApprove: boolean): string {
+  function getSettingsHtml(apiKey: string, model: string, modelOverride: string, maxTokens: number, autoApprove: boolean): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -568,31 +572,20 @@ export function activate(context: vscode.ExtensionContext) {
       <option value="default" ${model === "default" ? "selected" : ""}>Auto (default)</option>
       <option value="composer-2" ${model === "composer-2" ? "selected" : ""}>Composer 2</option>
       <option value="composer-1.5" ${model === "composer-1.5" ? "selected" : ""}>Composer 1.5</option>
-      <option value="claude-sonnet-4-6" ${model === "claude-sonnet-4-6" ? "selected" : ""}>Sonnet 4.6</option>
-      <option value="claude-sonnet-4-5" ${model === "claude-sonnet-4-5" ? "selected" : ""}>Sonnet 4.5</option>
-      <option value="claude-sonnet-4" ${model === "claude-sonnet-4" ? "selected" : ""}>Sonnet 4</option>
-      <option value="claude-opus-4-7" ${model === "claude-opus-4-7" ? "selected" : ""}>Opus 4.7</option>
-      <option value="claude-opus-4-6" ${model === "claude-opus-4-6" ? "selected" : ""}>Opus 4.6</option>
-      <option value="claude-opus-4-5" ${model === "claude-opus-4-5" ? "selected" : ""}>Opus 4.5</option>
-      <option value="claude-haiku-4-5" ${model === "claude-haiku-4-5" ? "selected" : ""}>Haiku 4.5</option>
-      <option value="gpt-5.5" ${model === "gpt-5.5" ? "selected" : ""}>GPT-5.5</option>
-      <option value="gpt-5.4" ${model === "gpt-5.4" ? "selected" : ""}>GPT-5.4</option>
-      <option value="gpt-5.4-mini" ${model === "gpt-5.4-mini" ? "selected" : ""}>GPT-5.4 Mini</option>
-      <option value="gpt-5.4-nano" ${model === "gpt-5.4-nano" ? "selected" : ""}>GPT-5.4 Nano</option>
-      <option value="gpt-5.2" ${model === "gpt-5.2" ? "selected" : ""}>GPT-5.2</option>
-      <option value="gpt-5.1" ${model === "gpt-5.1" ? "selected" : ""}>GPT-5.1</option>
-      <option value="gpt-5-mini" ${model === "gpt-5-mini" ? "selected" : ""}>GPT-5 Mini</option>
-      <option value="gpt-5.3-codex" ${model === "gpt-5.3-codex" ? "selected" : ""}>Codex 5.3</option>
-      <option value="gpt-5.3-codex-spark" ${model === "gpt-5.3-codex-spark" ? "selected" : ""}>Codex 5.3 Spark</option>
-      <option value="gpt-5.2-codex" ${model === "gpt-5.2-codex" ? "selected" : ""}>Codex 5.2</option>
-      <option value="gpt-5.1-codex-max" ${model === "gpt-5.1-codex-max" ? "selected" : ""}>Codex 5.1 Max</option>
-      <option value="gpt-5.1-codex-mini" ${model === "gpt-5.1-codex-mini" ? "selected" : ""}>Codex 5.1 Mini</option>
-      <option value="gemini-3.1-pro" ${model === "gemini-3.1-pro" ? "selected" : ""}>Gemini 3.1 Pro</option>
-      <option value="gemini-3-flash" ${model === "gemini-3-flash" ? "selected" : ""}>Gemini 3 Flash</option>
-      <option value="gemini-2.5-flash" ${model === "gemini-2.5-flash" ? "selected" : ""}>Gemini 2.5 Flash</option>
-      <option value="grok-4.3" ${model === "grok-4.3" ? "selected" : ""}>Grok 4.3</option>
-      <option value="kimi-k2.5" ${model === "kimi-k2.5" ? "selected" : ""}>Kimi K2.5</option>
+      <option value="claude-sonnet-4-20250514" ${model === "claude-sonnet-4-20250514" ? "selected" : ""}>Claude Sonnet 4</option>
+      <option value="claude-3.5-haiku-20241022" ${model === "claude-3.5-haiku-20241022" ? "selected" : ""}>Claude 3.5 Haiku</option>
+      <option value="gpt-4o-2024-11-20" ${model === "gpt-4o-2024-11-20" ? "selected" : ""}>GPT-4o</option>
+      <option value="gpt-4o-mini-2024-07-18" ${model === "gpt-4o-mini-2024-07-18" ? "selected" : ""}>GPT-4o Mini</option>
+      <option value="gemini-2.0-flash-001" ${model === "gemini-2.0-flash-001" ? "selected" : ""}>Gemini 2.0 Flash</option>
+      <option value="gemini-2.5-pro-exp-03-25" ${model === "gemini-2.5-pro-exp-03-25" ? "selected" : ""}>Gemini 2.5 Pro</option>
     </select>
+    <div class="hint">Select a known model or use the override field below for any model string</div>
+  </div>
+
+  <div class="field">
+    <label>Model Override (optional)</label>
+    <input type="text" id="modelOverride" value="${modelOverride}" placeholder="e.g., claude-opus-4-20250514" />
+    <div class="hint">If set, takes precedence over the dropdown. Enter any valid model string.</div>
   </div>
 
   <div class="field">
@@ -617,6 +610,7 @@ export function activate(context: vscode.ExtensionContext) {
         type: "save",
         apiKey: document.getElementById("apiKey").value,
         model: document.getElementById("model").value,
+        modelOverride: document.getElementById("modelOverride").value,
         maxTokens: parseInt(document.getElementById("maxTokens").value),
         autoApprove: document.getElementById("autoApprove").checked,
       });
@@ -639,26 +633,45 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(actionTree);
 
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  statusBar.command = "specflow.openPanel";
+  statusBar.command = "aidlc.openPanel";
   statusBar.text = "$(symbol-ruler) AIDLC";
   statusBar.tooltip = "Click to open AIDLC Pipeline";
   statusBar.show();
   context.subscriptions.push(statusBar);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("specflow.openPanel", () => showPanel()),
+    vscode.commands.registerCommand("aidlc.openPanel", () => showPanel()),
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand("specflow.startRun", () => showPanel()),
+    vscode.commands.registerCommand("aidlc.startRun", () => showPanel()),
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand("specflow.approvePhase", () => panel?.handleApproveStep()),
+    vscode.commands.registerCommand("aidlc.newPipeline", () => showPanel()),
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand("specflow.newSpec", () => showPanel()),
+    vscode.commands.registerCommand("aidlc.openSettings", () => showSettings()),
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand("specflow.openSettings", () => showSettings()),
+    vscode.commands.registerCommand("aidlc.approveStep", () => panel?.handleApproveStep()),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aidlc.rejectStep", () => panel?.handleRejectStep()),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aidlc.resumeRun", () => {
+      const state = bridge.getBridgeState();
+      if (state && state.runStatus === "failed" || state?.runStatus === "paused") {
+        bridge.resumeRun();
+      }
+    }),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aidlc.dryRun", () => {
+      const pipelines = bridge.pipelines;
+      if (pipelines.length > 0) {
+        bridge.runDryRun(pipelines[0]);
+      }
+    }),
   );
 }
 
