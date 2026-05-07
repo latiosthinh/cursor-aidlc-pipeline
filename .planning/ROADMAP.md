@@ -3,6 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-5 (shipped 2026-05-07)
+- 🔄 **v1.1 Polish + Post-Hackathon** — Phases 6-10 (in progress)
 
 ## Phases
 
@@ -110,6 +111,70 @@ Plans:
 
 </details>
 
+## v1.1 Polish + Post-Hackathon (Phases 6-10)
+
+- [ ] **Phase 6: Engine Hardening** — Graph-based cascade rollback, model validation, command allowlist
+- [ ] **Phase 7: Branding + Deeper Reviewer** — AIDLC rebrand, custom validators, loop context accumulation
+- [ ] **Phase 8: Skills + Gate UX** — Skill versioning and selective injection, gate approval UX
+- [ ] **Phase 9: Interactive DAG** — Interactive DAG exploration, markdown report export
+- [ ] **Phase 10: Power Features** — Parallel DAG execution, resume from crash, dry-run mode
+
+### Phase 6: Engine Hardening
+**Goal**: Core engine hardened with graph-based cascade rollback, validated model selection, and safe command execution.
+**Depends on**: Phase 5
+**Requirements**: CASCADE-01, CASCADE-02, CASCADE-03
+**Success Criteria** (what must be TRUE):
+  1. Cascade rollback traverses dependency graph to nearest ancestor (not hardcoded N-2)
+  2. User can select a model from a validated enum of real models or type a freeform override
+  3. Agent `run_command` only executes commands on a configurable allowlist with user confirmation
+**Plans**: TBD
+
+### Phase 7: Branding + Deeper Reviewer
+**Goal**: Extension unified under AIDLC branding; auto-reviewer supports custom validators and file-existence checks; loop context accumulates across retries.
+**Depends on**: Phase 6
+**Requirements**: BRAND-01, REVIEW-01, REVIEW-02
+**Success Criteria** (what must be TRUE):
+  1. Package name, publisher, and command prefix consistently use "AIDLC" across all surfaces
+  2. User can define custom semantic validators in pipeline config and see them run after each step
+  3. Auto-reviewer reports file-existence check results as pass/fail
+  4. Loop context includes critic feedback from ALL prior retry iterations (not just the latest)
+**Plans**: TBD
+
+### Phase 8: Skills + Gate UX
+**Goal**: Skills support version pinning and selective per-agent injection; gate approval has defined UX behavior.
+**Depends on**: Phase 7
+**Requirements**: SKILL-01, UX-01
+**Success Criteria** (what must be TRUE):
+  1. User can pin a skill to a specific semver version
+  2. User can inject a skill to specific agents only (not always full context)
+  3. Gate approval shows a timeout warning when time is running out
+  4. User can approve/reject gates from the panel AND the command palette
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 9: Interactive DAG
+**Goal**: DAG canvas supports interactive exploration and markdown report export.
+**Depends on**: Phase 8
+**Requirements**: UX-02, UX-03
+**Success Criteria** (what must be TRUE):
+  1. User can click a DAG node to view its generated artifacts inline
+  2. User can hover over a DAG node to see retry count and status history
+  3. User can export the completed pipeline run as a formatted markdown report
+  4. Markdown report includes step results, artifacts, and timing information
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 10: Power Features
+**Goal**: Pipeline supports parallel DAG execution, resume from crash, and dry-run validation without API calls.
+**Depends on**: Phase 9
+**Requirements**: POWER-01, POWER-02, POWER-03
+**Success Criteria** (what must be TRUE):
+  1. Pipeline executes independent DAG branches in parallel
+  2. User can resume a crashed pipeline from a specific step N, skipping completed steps
+  3. User can run pipeline in dry-run mode that validates config, resolves dependencies, and estimates token cost without making API calls
+  4. Dry-run output clearly shows resolved dependencies and estimated token cost
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -119,3 +184,8 @@ Plans:
 | 3. Extension Shell | v1.0 | 2/2 | Complete | 2026-05-07 |
 | 4. DAG Canvas Editor | v1.0 | 2/2 | Complete | 2026-05-07 |
 | 5. Artifact System + Agent Registry | v1.0 | 2/2 | Complete | 2026-05-07 |
+| 6. Engine Hardening | v1.1 | 0/0 | Not started | — |
+| 7. Branding + Deeper Reviewer | v1.1 | 0/0 | Not started | — |
+| 8. Skills + Gate UX | v1.1 | 0/0 | Not started | — |
+| 9. Interactive DAG | v1.1 | 0/0 | Not started | — |
+| 10. Power Features | v1.1 | 0/0 | Not started | — |
