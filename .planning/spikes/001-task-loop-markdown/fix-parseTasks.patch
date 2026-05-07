@@ -1,0 +1,65 @@
+Replace `src/engine/orchestrator/loop-orchestrator.ts` lines 325-337 with:
+
+```typescript
+private parseTasks(run: PipelineRunState): TaskItem[] {
+  for (const step of Object.values(run.steps)) {
+    if (step.outputArtifact) {
+      const fullPath = path.resolve(path.join(this.cwd || ".", step.outputArtifact));
+      try {
+        const content = fs.readFileSync(fullPath, "utf-8");
+        return this.parseMarkdownTasks(content);
+      } catch {
+        continue;
+      }
+    }
+  }
+  return [];
+}
+
+private parseMarkdownTasks(markdown: string): TaskItem[] {
+  const body = this.stripFrontmatter(markdown);
+  const tasks: TaskItem[] = [];
+  const taskRegex = /^\s*[-*]\s+\[([ x])\]\s+(.+)$/gm;
+  let match: RegExpExecArray | null;
+  let order = 0;
+
+  while ((match = taskRegex.exec(body)) !== null) {
+    order++;
+    const checked = match[1] === "x";
+    const rawTitle = match[2].trim();
+    const mode: "gate" | "yolo" = /\(gate\)/i.test(rawTitle) ? "gate" : "yolo";
+    const cleanTitle = rawTitle.replace(/\s*\(gate\)\s*/i, "").replace(/\s*\(risk:(low|medium|high)\)\s*/i, "");
+    let risk: "low" | "medium" | "high" = "medium";
+    const riskMatch = rawTitle.match(/\(risk:(low|medium|high)\)/i);
+    if (riskMatch) risk = riskMatch[1].toLowerCase() as "low" | "medium" | "high";
+    tasks.push({
+      id: `task-${String(order).padStart(3, "0")}`,
+      order,
+      title: cleanTitle,
+      description: "",
+      mode,
+      status: checked ? "passed" : "pending",
+      risk,
+    });
+  }
+  return tasks;
+}
+
+private stripFrontmatter(markdown: string): string {
+  const match = markdown.match(/^---\n[\s\S]*?\n---\n*/);
+  return match ? markdown.slice(match[0].length) : markdown;
+}
+```
+
+Add `cwd` as a constructor parameter or instance field so parseTasks can resolve paths:
+
+```typescript
+class LoopOrchestrator {
+  private cwd: string = "";
+
+  // ... in run():
+  this.cwd = cwd;
+```
+
+Import `path` is already at the top.
+Import `fs` is already at the top.

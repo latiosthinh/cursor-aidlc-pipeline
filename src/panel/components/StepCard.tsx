@@ -132,15 +132,28 @@ export const StepCard: React.FC<StepCardProps> = ({
             {showLogs ? "Hide Logs" : "Logs"}
           </button>
           {(isComplete || isRejected) && (
-            <button
-              onClick={() => postMessage({ type: "openArtifact", stepId: step.id })}
-              className="btn-secondary h-7 text-xs gap-1.5"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-              </svg>
-              View Artifact
-            </button>
+            <>
+              <button
+                onClick={() => postMessage({ type: "openArtifact", stepId: step.id })}
+                className="btn-secondary h-7 text-xs gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                View Artifact
+              </button>
+              {isRejected && (
+                <button
+                  onClick={() => postMessage({ type: "rerunStep", stepId: step.id, stepName: step.name })}
+                  className="btn-warning h-7 text-xs gap-1.5"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                  </svg>
+                  Rerun
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

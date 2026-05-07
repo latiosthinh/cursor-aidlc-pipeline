@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { SKILLS_DIR } from "../pipeline/schema";
+import { BUILTIN_SKILLS } from "./builtin-skills";
 
 export interface SkillEntry {
   id: string;
@@ -62,6 +63,17 @@ export class SkillLoader {
       }
     }
     return parts.join("\n");
+  }
+
+  syncBuiltinsToDisk(): void {
+    const dir = path.join(this.workspaceRoot, SKILLS_DIR);
+    fs.mkdirSync(dir, { recursive: true });
+    for (const skill of BUILTIN_SKILLS) {
+      const filePath = path.join(dir, `${skill.id}.md`);
+      if (!fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, skill.content, "utf-8");
+      }
+    }
   }
 
   private parseSkillFile(raw: string, fallbackId: string): SkillEntry | null {

@@ -180,6 +180,8 @@ export class EngineBridge {
       }
     }
     this.agentRegistry.syncBuiltinsToDisk();
+    const skillLoader = new SkillLoader(this.config.workspaceRoot);
+    skillLoader.syncBuiltinsToDisk();
   }
 
   async startRun(pipelineName: string, pipeline: PipelineDefinition, idea?: string): Promise<void> {
@@ -338,6 +340,18 @@ export class EngineBridge {
       this.abortController.abort();
       this.abortController = null;
     }
+  }
+
+  rerunStep(stepId: string): boolean {
+    if (!this.currentRun || !this.currentPipeline) return false;
+    const step = this.currentRun.steps[stepId];
+    if (!step) return false;
+    step.status = "pending";
+    step.revision++;
+    step.retriesRemaining = this.currentPipeline.steps.find((s) => s.id === stepId)?.maxRetries ?? 3;
+    this.runStore.saveState(this.currentRun);
+    this.emitStateUpdate();
+    return true;
   }
 
   loadRun(runId: string): PipelineRunState | null {

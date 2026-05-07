@@ -203,6 +203,9 @@ class PipelinePanel {
         this.postMessage({ type: "stepLog", runId: msg.runId, stepId: msg.stepId, content });
         break;
       }
+      case "rerunStep":
+        await this._handleRerunStep(msg.stepId as string, msg.stepName as string);
+        break;
       default:
         this._log.warn(`Unknown message type: ${msg.type}`);
     }
@@ -345,6 +348,25 @@ class PipelinePanel {
       this._log.error(`Failed to save skill: ${err.message}`);
     }
   }
+
+  private async _handleRerunStep(stepId: string, stepName: string): Promise<void> {
+    try {
+      const v = await vscode.window.showWarningMessage(
+        `Rerun step "${stepName}"? This will reset its state and re-execute the agent.`,
+        { modal: true },
+        "Rerun"
+      );
+      if (v !== "Rerun") return;
+      const ok = this._bridge.rerunStep(stepId);
+      if (ok) {
+        this._handleInit();
+      } else {
+        vscode.window.showErrorMessage(`Cannot rerun step "${stepName}" — no active run`);
+      }
+    } catch (err: any) {
+      this._log.error(`Failed to rerun step: ${err.message}`);
+    }
+  }
 }
 
 // ── Extension activation ────────────────────────────────────────
@@ -386,9 +408,19 @@ export function activate(context: vscode.ExtensionContext) {
 
   function showPanel(): PipelinePanel {
     if (!panel || panel.disposed) {
+      try {
+        panel = new PipelinePanel(bridge, context.extensionUri, log, workspaceRoot);
+      } catch (err: any) {
+        log.error(`Failed to create panel: ${err.message}`);
+        throw err;
+      }
+    }
+    try {
+      panel.reveal();
+    } catch {
+      // panel may have been disposed between check and reveal — recreate
       panel = new PipelinePanel(bridge, context.extensionUri, log, workspaceRoot);
     }
-    panel.reveal();
     return panel;
   }
 
@@ -504,10 +536,33 @@ export function activate(context: vscode.ExtensionContext) {
   <div class="field">
     <label>Model</label>
     <select id="model">
-      <option value="composer-2" ${model === "composer-2" ? "selected" : ""}>composer-2</option>
-      <option value="claude-sonnet-4-20250514" ${model === "claude-sonnet-4-20250514" ? "selected" : ""}>claude-sonnet-4</option>
-      <option value="claude-opus-4-20250514" ${model === "claude-opus-4-20250514" ? "selected" : ""}>claude-opus-4</option>
-      <option value="claude-3-5-sonnet-20241022" ${model === "claude-3-5-sonnet-20241022" ? "selected" : ""}>claude-3.5-sonnet</option>
+      <option value="default" ${model === "default" ? "selected" : ""}>Auto (default)</option>
+      <option value="composer-2" ${model === "composer-2" ? "selected" : ""}>Composer 2</option>
+      <option value="composer-1.5" ${model === "composer-1.5" ? "selected" : ""}>Composer 1.5</option>
+      <option value="claude-sonnet-4-6" ${model === "claude-sonnet-4-6" ? "selected" : ""}>Sonnet 4.6</option>
+      <option value="claude-sonnet-4-5" ${model === "claude-sonnet-4-5" ? "selected" : ""}>Sonnet 4.5</option>
+      <option value="claude-sonnet-4" ${model === "claude-sonnet-4" ? "selected" : ""}>Sonnet 4</option>
+      <option value="claude-opus-4-7" ${model === "claude-opus-4-7" ? "selected" : ""}>Opus 4.7</option>
+      <option value="claude-opus-4-6" ${model === "claude-opus-4-6" ? "selected" : ""}>Opus 4.6</option>
+      <option value="claude-opus-4-5" ${model === "claude-opus-4-5" ? "selected" : ""}>Opus 4.5</option>
+      <option value="claude-haiku-4-5" ${model === "claude-haiku-4-5" ? "selected" : ""}>Haiku 4.5</option>
+      <option value="gpt-5.5" ${model === "gpt-5.5" ? "selected" : ""}>GPT-5.5</option>
+      <option value="gpt-5.4" ${model === "gpt-5.4" ? "selected" : ""}>GPT-5.4</option>
+      <option value="gpt-5.4-mini" ${model === "gpt-5.4-mini" ? "selected" : ""}>GPT-5.4 Mini</option>
+      <option value="gpt-5.4-nano" ${model === "gpt-5.4-nano" ? "selected" : ""}>GPT-5.4 Nano</option>
+      <option value="gpt-5.2" ${model === "gpt-5.2" ? "selected" : ""}>GPT-5.2</option>
+      <option value="gpt-5.1" ${model === "gpt-5.1" ? "selected" : ""}>GPT-5.1</option>
+      <option value="gpt-5-mini" ${model === "gpt-5-mini" ? "selected" : ""}>GPT-5 Mini</option>
+      <option value="gpt-5.3-codex" ${model === "gpt-5.3-codex" ? "selected" : ""}>Codex 5.3</option>
+      <option value="gpt-5.3-codex-spark" ${model === "gpt-5.3-codex-spark" ? "selected" : ""}>Codex 5.3 Spark</option>
+      <option value="gpt-5.2-codex" ${model === "gpt-5.2-codex" ? "selected" : ""}>Codex 5.2</option>
+      <option value="gpt-5.1-codex-max" ${model === "gpt-5.1-codex-max" ? "selected" : ""}>Codex 5.1 Max</option>
+      <option value="gpt-5.1-codex-mini" ${model === "gpt-5.1-codex-mini" ? "selected" : ""}>Codex 5.1 Mini</option>
+      <option value="gemini-3.1-pro" ${model === "gemini-3.1-pro" ? "selected" : ""}>Gemini 3.1 Pro</option>
+      <option value="gemini-3-flash" ${model === "gemini-3-flash" ? "selected" : ""}>Gemini 3 Flash</option>
+      <option value="gemini-2.5-flash" ${model === "gemini-2.5-flash" ? "selected" : ""}>Gemini 2.5 Flash</option>
+      <option value="grok-4.3" ${model === "grok-4.3" ? "selected" : ""}>Grok 4.3</option>
+      <option value="kimi-k2.5" ${model === "kimi-k2.5" ? "selected" : ""}>Kimi K2.5</option>
     </select>
   </div>
 

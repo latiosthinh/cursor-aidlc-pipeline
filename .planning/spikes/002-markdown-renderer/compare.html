@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spike 002: Markdown Renderer Comparison</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #09090b; color: #e4e4e7; font-family: system-ui, sans-serif; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #71717a; margin-bottom: 24px; }
+
+  .tabs { display: flex; gap: 2px; margin-bottom: 20px; background: #18181b; border: 1px solid #27272a; border-radius: 10px; padding: 3px; }
+  .tab { padding: 8px 16px; border-radius: 7px; font-size: 13px; cursor: pointer; border: none; background: transparent; color: #71717a; font-weight: 500; transition: all 0.15s; }
+  .tab.active { background: #27272a; color: #e4e4e7; }
+  .tab:hover:not(.active) { color: #a1a1aa; }
+
+  .comparison { display: none; gap: 20px; }
+  .comparison.active { display: flex; }
+
+  .panel { flex: 1; min-width: 0; }
+  .panel h3 { font-size: 11px; font-weight: 500; color: #52525b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .panel h3 .badge { font-size: 9px; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+  .badge-raw { background: rgba(113,113,122,0.2); color: #71717a; }
+  .badge-marked { background: rgba(59,130,246,0.2); color: #3b82f6; }
+
+  .raw-box { background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 16px; font-family: "JetBrains Mono", monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-x: auto; max-height: 500px; overflow-y: auto; color: #a1a1aa; }
+
+  .rendered-box { background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 20px; font-size: 14px; line-height: 1.6; max-height: 500px; overflow-y: auto; }
+
+  /* Markdown rendered styles (VS Code WebView-compatible) */
+  .rendered-box h1 { font-size: 22px; font-weight: 700; margin: 20px 0 10px; color: #e4e4e7; }
+  .rendered-box h2 { font-size: 18px; font-weight: 600; margin: 16px 0 8px; color: #e4e4e7; border-bottom: 1px solid #27272a; padding-bottom: 4px; }
+  .rendered-box h3 { font-size: 15px; font-weight: 600; margin: 14px 0 6px; color: #e4e4e7; }
+  .rendered-box p { margin: 8px 0; color: #d4d4d8; }
+  .rendered-box ul, .rendered-box ol { margin: 6px 0; padding-left: 24px; }
+  .rendered-box li { margin: 3px 0; color: #d4d4d8; }
+  .rendered-box li.task-list-item { list-style: none; margin-left: -20px; }
+  .rendered-box input[type="checkbox"] { margin-right: 8px; accent-color: #22c55e; }
+  .rendered-box code { background: #27272a; color: #f472b6; padding: 1px 5px; border-radius: 3px; font-size: 13px; font-family: "JetBrains Mono", monospace; }
+  .rendered-box pre { background: #0a0a0e; border: 1px solid #27272a; border-radius: 6px; padding: 14px; overflow-x: auto; margin: 10px 0; }
+  .rendered-box pre code { background: transparent; padding: 0; font-size: 12px; color: #e4e4e7; line-height: 1.5; }
+  .rendered-box blockquote { border-left: 3px solid #3b82f6; margin: 10px 0; padding: 6px 14px; color: #a1a1aa; background: rgba(59,130,246,0.04); border-radius: 0 4px 4px 0; }
+  .rendered-box table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  .rendered-box th, .rendered-box td { border: 1px solid #27272a; padding: 8px 12px; text-align: left; }
+  .rendered-box th { background: #18181b; font-weight: 600; color: #e4e4e7; }
+  .rendered-box td { color: #d4d4d8; }
+  .rendered-box hr { border: none; border-top: 1px solid #27272a; margin: 16px 0; }
+  .rendered-box a { color: #3b82f6; text-decoration: none; }
+  .rendered-box a:hover { text-decoration: underline; }
+  .rendered-box strong { color: #e4e4e7; }
+
+  .side-by-side { display: flex; gap: 20px; }
+  .side-by-side .panel { flex: 1; }
+
+  .samples { margin-bottom: 20px; }
+  .sample-btn { padding: 4px 12px; border-radius: 6px; border: 1px solid #27272a; background: #18181b; color: #a1a1aa; font-size: 12px; cursor: pointer; margin: 0 4px 4px 0; transition: all 0.15s; }
+  .sample-btn:hover { border-color: #3b82f6; color: #e4e4e7; }
+  .sample-btn.active { border-color: #3b82f6; background: rgba(59,130,246,0.1); color: #3b82f6; }
+
+  .verdict { margin-top: 24px; padding: 16px; border: 1px solid #27272a; border-radius: 10px; background: #18181b; display: flex; gap: 16px; align-items: flex-start; }
+  .verdict-icon { font-size: 20px; line-height: 1; }
+  .verdict h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .verdict p { font-size: 13px; color: #a1a1aa; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>Spike 002: Markdown Renderer Comparison</h1>
+<p class="subtitle">Comparing raw <code>&lt;pre&gt;</code> display vs. <strong>marked.js</strong> rendered HTML for agent-generated artifacts</p>
+
+<div class="samples">
+  <button class="sample-btn active" data-sample="0">📝 SDLC Plan</button>
+  <button class="sample-btn" data-sample="1">📊 Tables + Code</button>
+  <button class="sample-btn" data-sample="2">✅ Task List</button>
+  <button class="sample-btn" data-sample="3">🔧 Technical Spec</button>
+  <button class="sample-btn" data-sample="4">⚠️ Error + Edge Cases</button>
+</div>
+
+<div class="side-by-side">
+  <div class="panel">
+    <h3><span class="badge badge-raw">RAW</span> Current: &lt;pre&gt; display</h3>
+    <div class="raw-box" id="raw-display"></div>
+  </div>
+  <div class="panel">
+    <h3><span class="badge badge-marked">MARKED</span> Rendered with marked.js</h3>
+    <div class="rendered-box" id="rendered-display"></div>
+  </div>
+</div>
+
+<div class="verdict">
+  <div class="verdict-icon">⚡</div>
+  <div>
+    <h3>Verdict: marked.js is the right choice for WebView rendering</h3>
+    <p>marked.js produces clean, styled HTML from all artifact types. It's already a dependency (^15.0.4). No sanitization needed in a trusted WebView context. The only missing piece: frontmatter stripping (YAML <code>---</code> blocks) must happen before rendering. VS Code's built-in markdown preview cannot be embedded in the WebView panel; it opens as a separate editor tab. marked.js avoids this UX disconnect.</p>
+  </div>
+</div>
+
+<script>
+const SAMPLES = [
+  {
+    name: "SDLC Plan",
+    md: `---
+generated-by: architect
+pipeline: sdlc-v1
+---
+
+# Implementation Plan
+
+## Overview
+This plan covers the authentication module for the user management system.
+
+## Steps
+
+### 1. Database Schema
+Create a \`users\` table with the following columns:
+- \`id\`: UUID primary key
+- \`email\`: VARCHAR(255) UNIQUE NOT NULL
+- \`password_hash\`: VARCHAR(255) NOT NULL
+- \`created_at\`: TIMESTAMP DEFAULT NOW()
+
+### 2. API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /auth/register | Create new user |
+| POST | /auth/login | Authenticate user |
+| GET | /auth/me | Get current user |
+
+### 3. Dependencies
+1. Database driver (\`pg\` or \`mysql2\`)
+2. JWT library (\`jsonwebtoken\`)
+3. Password hashing (\`bcrypt\`)
+
+> **Note:** Use environment variables for secrets. Never hardcode JWT secrets.
+`
+  },
+  {
+    name: "Tables + Code",
+    md: `---
+type: technical-spec
+---
+
+# API Specification
+
+## Error Codes
+
+| Code | HTTP Status | Meaning |
+|------|-------------|---------|
+| AUTH_001 | 401 | Token expired |
+| AUTH_002 | 403 | Insufficient permissions |
+| VAL_001 | 422 | Validation failed |
+| RATELIMIT | 429 | Too many requests |
+
+## Example Response
+
+\`\`\`json
+{
+  "status": "error",
+  "code": "AUTH_001",
+  "message": "Access token has expired",
+  "details": {
+    "expired_at": "2026-05-07T12:00:00Z",
+    "refresh_url": "/auth/refresh"
+  }
+}
+\`\`\`
+
+### Configuration
+To enable rate limiting, set the following in your \`.env\`:
+
+\`\`\`bash
+RATE_LIMIT_WINDOW=60000
+RATE_LIMIT_MAX=100
+\`\`\`
+
+Then restart the server:
+\`\`\`bash
+npm run build && npm start
+\`\`\`
+`
+  },
+  {
+    name: "Task List",
+    md: `---
+generated-by: task-generator
+pipeline: feature-x
+---
+
+# Tasks
+
+## Sprint 1: Foundation
+- [ ] Set up project repository and CI/CD pipeline
+- [ ] Configure database connection and migration system
+- [x] Define API contracts with OpenAPI spec
+
+## Sprint 2: Core Features (gate)
+- [ ] Implement user authentication flow
+- [ ] Create project CRUD endpoints (risk:high)
+- [ ] Write unit tests for auth middleware
+
+## Sprint 3: Polish
+- [ ] Add input validation middleware (gate)
+- [ ] Implement error tracking integration (risk:low)
+- [x] Set up monitoring dashboard
+
+> 3 of 9 tasks completed. Estimated velocity: 2 tasks/sprint.
+`
+  },
+  {
+    name: "Technical Spec",
+    md: `---
+type: spec
+status: draft
+---
+
+# Authentication Middleware
+
+## Purpose
+Verify JWT tokens on protected routes and attach user context to the request.
+
+## Usage
+
+\`\`\`typescript
+import { authenticate } from "./middleware/auth";
+
+router.get("/api/protected", authenticate, async (req, res) => {
+  // req.user is now available
+  res.json({ user: req.user });
+});
+\`\`\`
+
+## Implementation
+
+The middleware performs three checks:
+
+1. **Extract token** from \`Authorization: Bearer <token>\` header
+2. **Verify signature** using the public key from environment
+3. **Attach payload** to \`req.user\` and call \`next()\`
+
+### Error Handling
+
+| Condition | Response |
+|-----------|----------|
+| Missing header | \`401 { code: "NO_TOKEN" }\` |
+| Invalid signature | \`401 { code: "INVALID_TOKEN" }\` |
+| Expired token | \`401 { code: "TOKEN_EXPIRED" }\` |
+
+## Edge Cases
+
+- Tokens in query strings are **not** supported
+- WebSocket connections use a separate \`ws://\` auth mechanism
+- Rate limiting is applied *after* authentication
+`
+  },
+  {
+    name: "Error + Edge Cases",
+    md: `---
+malformed
+no close...
+
+# Edge Case Samples
+
+## Empty Code Block
+\`\`\`
+
+\`\`\`
+
+## Single Character
+a
+
+## Very Long Unbroken String
+abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz
+
+## Nested Brackets in Text
+The array is [[1, 2], [3, [4, 5]]]. Callback: \`fn({ key: "value" })\`.
+
+## Special Characters
+- Copyright: © 2026
+- Math: x² + y² = z²
+- Escape: \\`not code\\`
+
+## Mixed Indentation
+  - Indented list item
+    - Nested deeper
+  - Back to first level
+    - \`code\` in nested item
+
+## Just Frontmatter (no body)
+---
+key: value-only
+---
+`
+  },
+];
+
+let currentSample = 0;
+
+function stripFrontmatter(md) {
+  return md.replace(/^---\n[\s\S]*?\n---\n*/, "");
+}
+
+function renderSample(index) {
+  currentSample = index;
+  const sample = SAMPLES[index];
+
+  // Update active tab
+  document.querySelectorAll(".sample-btn").forEach((btn, i) => {
+    btn.classList.toggle("active", i === index);
+  });
+
+  // Raw display
+  document.getElementById("raw-display").textContent = sample.md;
+
+  // Marked.js rendered display
+  const body = stripFrontmatter(sample.md);
+  const html = marked.parse(body, { breaks: true, gfm: true });
+  document.getElementById("rendered-display").innerHTML = html;
+}
+
+// Initialize
+renderSample(0);
+
+// Sample buttons
+document.querySelectorAll(".sample-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    renderSample(parseInt(btn.dataset.sample));
+  });
+});
+</script>
+</body>
+</html>

@@ -30,20 +30,14 @@ export class CascadeRejector {
 
     if (fromIdx < 0 || targetIdx < 0) return;
 
-    // Archive all steps between target and from
+    // Mark all steps from target to from for re-execution
     for (let i = targetIdx; i <= fromIdx; i++) {
       const sid = stepIds[i];
       const s = run.steps[sid];
-      if (s) {
-        if (i === targetIdx) {
-          this.machine.transitionStep(run, sid, "rejected");
-        } else if (s.status === "approved" || s.status === "in_review") {
-          this.machine.transitionStep(run, sid, "rejected");
-          s.revision++;
-        } else {
-          s.status = "skipped";
-        }
-      }
+      if (!s) continue;
+      const wasRunning = s.status === "running";
+      this.machine.transitionStep(run, sid, "rejected");
+      if (!wasRunning) s.revision++;
     }
 
     this.machine.addDecision(run, {

@@ -10,43 +10,47 @@ steps:
   - id: brainstorm
     name: "Brainstorm"
     agent: idea-expander
-    model: claude-sonnet-4-20250514
+    model: composer-2
     gate: true
     maxRetries: 3
     artifact: idea.md
     tags: [product]
+    skills: [brainstorming-frameworks]
 
   - id: requirements
     name: "Requirements"
     agent: requirements-engineer
-    model: claude-opus-4-20250514
+    model: composer-2
     gate: true
     maxRetries: 3
     artifact: requirements.md
     tags: [product]
+    skills: [requirements-specification]
 
   - id: design
     name: "Technical Design"
     agent: architect
-    model: claude-opus-4-20250514
+    model: composer-2
     gate: true
     maxRetries: 3
     artifact: design.md
     tags: [technical]
+    skills: [software-architecture]
 
   - id: tasks
     name: "Task Generation"
     agent: task-generator
-    model: claude-sonnet-4-20250514
+    model: composer-2
     gate: true
     maxRetries: 3
     artifact: tasks.md
     tags: [technical]
+    skills: [task-decomposition]
 
   - id: implementation
     name: "Implementation"
     agent: executor
-    model: claude-sonnet-4-20250514
+    model: composer-2
     gate: false
     loop:
       mode: task
@@ -54,20 +58,22 @@ steps:
       maxIterations: 3
     artifact: tasks.md
     tags: [code]
+    skills: [react-best-practices, typescript-best-practices, cursor-sdk-patterns]
 
   - id: test-generation
     name: "Test Generation"
     agent: test-writer
-    model: claude-sonnet-4-20250514
+    model: composer-2
     gate: true
     maxRetries: 3
     artifact: tests.md
     tags: [quality]
+    skills: [testing-strategies]
 
   - id: report
     name: "Summary Report"
     agent: reporter
-    model: claude-sonnet-4-20250514
+    model: composer-2
     gate: false
     maxRetries: 2
     artifact: report.md

@@ -6,6 +6,7 @@ export const LoopConfigSchema = z.object({
   mode: z.enum(["task", "phase", "cascade"]),
   agent: z.string().optional(),
   maxIterations: z.number().int().min(1).max(50).default(3),
+  target: z.string().optional(),
 });
 
 export type LoopConfig = z.infer<typeof LoopConfigSchema>;
@@ -14,7 +15,7 @@ export const StepDefinitionSchema = z.object({
   id: z.string().min(1).regex(/^[a-z0-9-]+$/),
   name: z.string().min(1),
   agent: z.string().min(1),
-  model: z.string().min(1).default("claude-sonnet-4-20250514"),
+  model: z.string().min(1).default("composer-2"),
   gate: z.boolean().default(true),
   maxRetries: z.number().int().min(0).max(10).default(3),
   artifact: z.string().min(1),
@@ -64,9 +65,9 @@ export type StepStatus =
 
 export const STEP_STATUS_TRANSITIONS: Record<StepStatus, StepStatus[]> = {
   pending: ["running", "skipped"],
-  running: ["in_review", "failed"],
+  running: ["in_review", "failed", "approved", "rejected"],
   in_review: ["approved", "rejected", "running"],
-  approved: ["running"], // allow re-run
+  approved: ["running", "rejected"], // allow re-run
   rejected: ["running"], // allow re-run
   skipped: [],
   failed: ["running"],

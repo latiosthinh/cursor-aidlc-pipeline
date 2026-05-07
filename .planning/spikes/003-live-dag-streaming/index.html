@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spike 003: Live DAG Streaming</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #09090b; color: #e4e4e7; font-family: system-ui, sans-serif; min-height: 100vh; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #71717a; margin-bottom: 24px; }
+
+  .dashboard { display: flex; gap: 24px; }
+  .dag-area { flex: 1; background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 24px; }
+  .sidebar { width: 260px; display: flex; flex-direction: column; gap: 16px; }
+
+  .stats-card { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 16px; }
+  .stats-card h3 { font-size: 12px; font-weight: 500; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+  .stat-row .label { color: #a1a1aa; }
+  .stat-row .value { font-weight: 500; }
+
+  /* Canvas */
+  #dag-canvas { position: relative; width: 100%; height: 520px; }
+  #dag-svg { width: 100%; height: 100%; }
+  .node-group { cursor: default; }
+  .node-rect { transition: all 0.3s ease; }
+  .node-status-ring { transition: all 0.3s ease; }
+  .node-label { font-size: 13px; font-weight: 500; fill: #e4e4e7; }
+  .node-sub { font-size: 11px; fill: #71717a; }
+  .edge-line { stroke: #52525b; stroke-width: 1.5; fill: none; }
+  .edge-arrow { fill: #52525b; }
+
+  /* Status colors */
+  .status-pending { fill: #27272a; stroke: #27272a; }
+  .status-running { fill: #1a3a2a; stroke: #22c55e; }
+  .status-running .glow { animation: pulse 1s ease-in-out infinite; }
+  .status-approved { fill: #0a2e1a; stroke: #22c55e; }
+  .status-rejected { fill: #2e0a0a; stroke: #ef4444; }
+  .status-ring-pending { stroke: #27272a; }
+  .status-ring-running { stroke: #22c55e; }
+  .status-ring-approved { stroke: #22c55e; }
+  .status-ring-rejected { stroke: #ef4444; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  .pulse-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .pulse-dot.running { background: #22c55e; animation: pulse 1s ease-in-out infinite; }
+
+  .legend { display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a1a1aa; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 3px; }
+  .l-pending { background: #27272a; border: 1px solid #27272a; }
+  .l-running { background: #1a3a2a; border: 1px solid #22c55e; }
+  .l-approved { background: #0a2e1a; border: 1px solid #22c55e; }
+  .l-rejected { background: #2e0a0a; border: 1px solid #ef4444; }
+
+  .event-log { max-height: 200px; overflow-y: auto; font-family: "JetBrains Mono", monospace; font-size: 11px; line-height: 1.6; }
+  .event-log::-webkit-scrollbar { width: 4px; }
+  .event-log::-webkit-scrollbar-track { background: #18181b; }
+  .event-log::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
+  .event-entry { padding: 2px 0; display: flex; gap: 8px; }
+  .event-time { color: #52525b; white-space: nowrap; }
+  .event-step { color: #3b82f6; }
+  .event-status { font-weight: 500; }
+  .ev-running { color: #22c55e; }
+  .ev-approved { color: #22c55e; }
+  .ev-rejected { color: #ef4444; }
+
+  .controls { display: flex; gap: 8px; margin-top: 16px; }
+  button { padding: 8px 16px; border-radius: 8px; border: 1px solid #27272a; background: #18181b; color: #e4e4e7; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+  button:hover { background: #27272a; border-color: #3b82f6; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+  button.primary:hover { background: #2563eb; }
+  button.danger { border-color: #ef4444; color: #ef4444; }
+  button.danger:hover { background: #ef4444; color: #fff; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Spike 003: Live DAG Streaming</h1>
+  <p class="subtitle">Simulating real-time step state changes on a dependency graph during pipeline execution</p>
+
+  <div class="dashboard">
+    <div class="dag-area">
+      <div id="dag-canvas">
+        <svg id="dag-svg" viewBox="0 0 700 500"></svg>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-swatch l-pending"></span> Pending</div>
+        <div class="legend-item"><span class="legend-swatch l-running"></span> Running</div>
+        <div class="legend-item"><span class="legend-swatch l-approved"></span> Approved</div>
+        <div class="legend-item"><span class="legend-swatch l-rejected"></span> Rejected</div>
+      </div>
+      <div class="controls">
+        <button id="btn-start" class="primary">▶ Run Pipeline</button>
+        <button id="btn-cascade" class="danger">💥 Trigger Cascade</button>
+        <button id="btn-reset">↺ Reset</button>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="stats-card">
+        <h3>Pipeline State</h3>
+        <div id="pipeline-status" class="stat-row"><span class="label">Status</span><span class="value" id="run-status">idle</span></div>
+        <div id="step-stats"></div>
+      </div>
+      <div class="stats-card">
+        <h3>Performance</h3>
+        <div class="stat-row"><span class="label">Update latency</span><span class="value" id="latency">—</span></div>
+        <div class="stat-row"><span class="label">Events fired</span><span class="value" id="event-count">0</span></div>
+      </div>
+      <div class="stats-card">
+        <h3>Event Log</h3>
+        <div class="event-log" id="event-log">
+          <div class="event-entry"><span class="event-time">—</span><span style="color:#71717a">Ready. Click "Run Pipeline" to start.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Pipeline definition ─────────────────────────────────────────
+const PIPELINE = {
+  name: "SDLC Pipeline",
+  steps: [
+    { id: "plan", name: "Plan", agent: "planner", gate: true, depends_on: [] },
+    { id: "design", name: "Design", agent: "architect", gate: true, depends_on: ["plan"] },
+    { id: "impl", name: "Implement", agent: "executor", gate: false, depends_on: ["design"] },
+    { id: "review", name: "Review", agent: "critic", gate: true, depends_on: ["impl"] },
+    { id: "deploy", name: "Deploy", agent: "reporter", gate: false, depends_on: ["review"] },
+  ],
+};
+
+// ── State ───────────────────────────────────────────────────────
+const state = {
+  status: "idle", // idle | running | completed | failed
+  steps: {} as Record<string, { status: string; revision: number }>,
+  eventCount: 0,
+};
+
+function initStepStates() {
+  for (const s of PIPELINE.steps) {
+    state.steps[s.id] = { status: "pending", revision: 0 };
+  }
+}
+initStepStates();
+
+// ── SVG Layout ──────────────────────────────────────────────────
+const NODE_W = 160;
+const NODE_H = 64;
+const GAP_X = 80;
+const GAP_Y = 80;
+const START_X = 270;
+const START_Y = 40;
+
+function getNodePos(index: number) {
+  return { x: START_X, y: START_Y + index * (NODE_H + GAP_Y) };
+}
+
+function getTopCenter(stepId: string) {
+  const idx = PIPELINE.steps.findIndex(s => s.id === stepId);
+  const pos = getNodePos(idx);
+  return { x: pos.x + NODE_W / 2, y: pos.y };
+}
+
+function getBottomCenter(stepId: string) {
+  const idx = PIPELINE.steps.findIndex(s => s.id === stepId);
+  const pos = getNodePos(idx);
+  return { x: pos.x + NODE_W / 2, y: pos.y + NODE_H };
+}
+
+// ── Render ──────────────────────────────────────────────────────
+const svg = document.getElementById("dag-svg")!;
+
+function render() {
+  let html = `<defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#52525b"/>
+    </marker>
+  </defs>`;
+
+  // Edges: draw first so they appear under nodes
+  for (const step of PIPELINE.steps) {
+    for (const dep of step.depends_on) {
+      const from = getBottomCenter(dep);
+      const to = getTopCenter(step.id);
+      const midY = (from.y + to.y) / 2;
+      html += `<path class="edge-line" d="M${from.x},${from.y} C${from.x},${midY} ${to.x},${midY} ${to.x},${to.y}" marker-end="url(#arrowhead)"/>`;
+    }
+  }
+
+  // Nodes
+  for (let i = 0; i < PIPELINE.steps.length; i++) {
+    const step = PIPELINE.steps[i];
+    const pos = getNodePos(i);
+    const st = state.steps[step.id];
+    const status = st?.status ?? "pending";
+
+    const colors: Record<string, { bg: string; border: string; text: string; sub: string }> = {
+      pending: { bg: "#18181b", border: "#27272a", text: "#e4e4e7", sub: "#52525b" },
+      running: { bg: "#1a3a2a", border: "#22c55e", text: "#e4e4e7", sub: "#22c55e" },
+      approved: { bg: "#0a2e1a", border: "#22c55e", text: "#e4e4e7", sub: "#4ade80" },
+      rejected: { bg: "#2e0a0a", border: "#ef4444", text: "#e4e4e7", sub: "#ef4444" },
+      skipped: { bg: "#18181b", border: "#3b3b3b", text: "#52525b", sub: "#3b3b3b" },
+    };
+    const c = colors[status] ?? colors.pending;
+
+    const isRunning = status === "running";
+
+    html += `<g class="node-group">`;
+
+    // Glow ring (only for running)
+    if (isRunning) {
+      html += `<rect class="glow" x="${pos.x - 2}" y="${pos.y - 2}" width="${NODE_W + 4}" height="${NODE_H + 4}" rx="12" fill="none" stroke="#22c55e" stroke-width="2" opacity="0.3"/>`;
+    }
+
+    // Main rect
+    html += `<rect class="node-rect" x="${pos.x}" y="${pos.y}" width="${NODE_W}" height="${NODE_H}" rx="10" fill="${c.bg}" stroke="${c.border}" stroke-width="${isRunning ? 2 : 1}"/>`;
+
+    // Agent icon
+    html += `<circle cx="${pos.x + 14}" cy="${pos.y + 16}" r="5" fill="${c.sub}" opacity="0.5"/>`;
+    html += `<text x="${pos.x + 24}" y="${pos.y + 20}" class="node-sub" fill="${c.sub}">${step.agent}</text>`;
+
+    // Step name
+    html += `<text x="${pos.x + 14}" y="${pos.y + 42}" class="node-label" fill="${c.text}">${step.name}</text>`;
+
+    // Status badge
+    const badgeX = pos.x + NODE_W - 10;
+    const badgeColors: Record<string, string> = {
+      pending: "#27272a", running: "#22c55e", approved: "#22c55e", rejected: "#ef4444", skipped: "#3b3b3b",
+    };
+    html += `<circle cx="${badgeX - 25}" cy="${pos.y + 16}" r="4" fill="${badgeColors[status] ?? '#27272a'}"/>`;
+    html += `<text x="${badgeX - 20}" y="${pos.y + 20}" font-size="9" fill="#71717a">${status}</text>`;
+
+    // Gate indicator
+    if (step.gate) {
+      html += `<text x="${pos.x + NODE_W - 8}" y="${pos.y + 44}" font-size="9" fill="#eab308" text-anchor="end">GATE</text>`;
+    }
+
+    html += `</g>`;
+  }
+
+  svg.innerHTML = html;
+}
+
+// ── Event Log ───────────────────────────────────────────────────
+const eventLog = document.getElementById("event-log")!;
+const eventCountEl = document.getElementById("event-count")!;
+
+function logEvent(stepId: string, from: string, to: string) {
+  const t = new Date().toISOString().slice(11, 23);
+  const entry = document.createElement("div");
+  entry.className = "event-entry";
+  entry.innerHTML = `<span class="event-time">${t}</span><span class="event-step">${stepId}</span><span class="event-status ev-${to}">${from} → ${to}</span>`;
+  eventLog.appendChild(entry);
+  eventLog.scrollTop = eventLog.scrollHeight;
+  state.eventCount++;
+  eventCountEl.textContent = String(state.eventCount);
+}
+
+// ── Simulation ──────────────────────────────────────────────────
+let simTimer: ReturnType<typeof setTimeout> | null = null;
+let simAbort = false;
+let cascadeMode = false;
+
+const latencyEl = document.getElementById("latency")!;
+const runStatusEl = document.getElementById("run-status")!;
+const stepStatsEl = document.getElementById("step-stats")!;
+const btnStart = document.getElementById("btn-start")!;
+const btnCascade = document.getElementById("btn-cascade")!;
+const btnReset = document.getElementById("btn-reset")!;
+
+function updateStats() {
+  const counts = { pending: 0, running: 0, approved: 0, rejected: 0, skipped: 0 };
+  for (const s of Object.values(state.steps)) {
+    counts[s.status as keyof typeof counts]++;
+  }
+  stepStatsEl.innerHTML = Object.entries(counts)
+    .filter(([, n]) => n > 0)
+    .map(([k, n]) => `<div class="stat-row"><span class="label">${k}</span><span class="value">${n}</span></div>`)
+    .join("");
+  runStatusEl.textContent = state.status;
+}
+
+async function runPipeline() {
+  if (state.status === "running") return;
+  simAbort = false;
+  initStepStates();
+  state.status = "running";
+  render(); updateStats();
+
+  const order = PIPELINE.steps.map(s => s.id);
+
+  for (let i = 0; i < order.length; i++) {
+    if (simAbort) break;
+    const sid = order[i];
+    const step = PIPELINE.steps[i];
+
+    // Skip completed steps (cascade re-run)
+    if (state.steps[sid].status === "approved") continue;
+
+    // pending → running
+    const t0 = performance.now();
+    state.steps[sid].status = "running";
+    render(); updateStats();
+    logEvent(sid, "pending", "running");
+    const latency = (performance.now() - t0).toFixed(1);
+    latencyEl.textContent = `${latency}ms`;
+    await delay(800 + Math.random() * 600);
+
+    if (simAbort) break;
+
+    // Check for cascade
+    if (cascadeMode && sid === "impl") {
+      state.steps[sid].status = "rejected";
+      logEvent(sid, "running", "rejected");
+      render(); updateStats();
+      await delay(400);
+
+      // Cascade to N-2 (plan)
+      const targetIdx = Math.max(0, i - 2);
+      logEvent(sid, "cascade", `→ ${order[targetIdx]}`);
+      for (let j = targetIdx; j <= i; j++) {
+        const rs = order[j];
+        state.steps[rs].status = "rejected";
+        state.steps[rs].revision++;
+        logEvent(rs, "re-run", "rejected");
+      }
+      render(); updateStats();
+      cascadeMode = false;
+      await delay(500);
+
+      // Reset to target
+      i = targetIdx - 1;
+      continue;
+    }
+
+    // running → approved (or rejected)
+    const passed = Math.random() > 0.05; // 95% pass rate
+    state.steps[sid].status = passed ? "approved" : "rejected";
+    logEvent(sid, "running", passed ? "approved" : "rejected");
+    render(); updateStats();
+
+    if (!passed) {
+      state.status = "failed";
+      render(); updateStats();
+      break;
+    }
+
+    await delay(200);
+  }
+
+  if (!simAbort && state.status !== "failed") {
+    state.status = "completed";
+    render(); updateStats();
+    logEvent("", "pipeline", "completed ✓");
+  }
+}
+
+function delay(ms: number) {
+  return new Promise(resolve => {
+    simTimer = setTimeout(resolve, ms);
+  });
+}
+
+// ── Controls ────────────────────────────────────────────────────
+btnStart.addEventListener("click", () => {
+  runPipeline();
+  btnStart.disabled = true;
+});
+
+btnCascade.addEventListener("click", () => {
+  cascadeMode = true;
+  btnCascade.disabled = true;
+});
+
+btnReset.addEventListener("click", () => {
+  if (simTimer) clearTimeout(simTimer);
+  simAbort = true;
+  cascadeMode = false;
+  initStepStates();
+  state.status = "idle";
+  state.eventCount = 0;
+  eventLog.innerHTML = `<div class="event-entry"><span class="event-time">—</span><span style="color:#71717a">Reset. Click "Run Pipeline" to start.</span></div>`;
+  eventCountEl.textContent = "0";
+  latencyEl.textContent = "—";
+  render(); updateStats();
+  btnStart.disabled = false;
+  btnCascade.disabled = false;
+});
+
+// ── Initial render ──────────────────────────────────────────────
+render();
+updateStats();
+</script>
+</body>
+</html>

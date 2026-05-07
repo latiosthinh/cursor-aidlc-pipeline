@@ -28,6 +28,7 @@ export interface OrchestratorConfig {
 }
 
 export class LoopOrchestrator {
+  private cwd: string = "";
   private machine: StateMachine;
   private validator: PipelineValidator;
   private loopManager: LoopManager;
@@ -50,6 +51,7 @@ export class LoopOrchestrator {
     config: OrchestratorConfig,
   ): Promise<void> {
     const { cwd, runner, agentRegistry, onEvent, onDecision, waitForGate, signal } = config;
+    this.cwd = cwd;
     this.skillLoader = new SkillLoader(cwd);
 
     const issues = this.validator.validate(pipeline);
@@ -261,12 +263,12 @@ export class LoopOrchestrator {
 
       // ── Handle cascade loop (any step can reject upstream) ──
       if (review.verdict === "cascade") {
-        // auto-reviewer identified root cause — find the right target
-        const target = review.cascadeTarget ?? order[0];
+        const target = stepDef.loop?.target ?? review.cascadeTarget ?? order[0];
         if (this.cascadeRejector.canCascade(run, stepId, target, pipeline)) {
           this.cascadeRejector.cascadeReject(
-            run, stepId, target, pipeline,
+            run, stepId, target,
             `Cascade reject: "${stepDef.name}" failed with cascade verdict`,
+            pipeline,
           );
           const targetIdx = order.indexOf(target);
           if (targetIdx >= 0) i = targetIdx;
@@ -303,6 +305,8 @@ export class LoopOrchestrator {
           summary: `Step "${stepDef.name}" failed after exhausting retries`,
           stepId,
         });
+        this.machine.setRunStatus(run, "failed");
+        return;
       }
 
       i++;
@@ -325,14 +329,49 @@ export class LoopOrchestrator {
   private parseTasks(run: PipelineRunState): import("../pipeline/schema").TaskItem[] {
     for (const step of Object.values(run.steps)) {
       if (step.outputArtifact) {
+        const fullPath = path.resolve(path.join(this.cwd, step.outputArtifact));
         try {
-          const tasks = JSON.parse(step.outputArtifact);
-          if (Array.isArray(tasks)) return tasks;
+          const content = fs.readFileSync(fullPath, "utf-8");
+          return this.parseMarkdownTasks(content);
         } catch {
-          // Not JSON — try parsing as markdown task list
+          continue;
         }
       }
     }
     return [];
+  }
+
+  private parseMarkdownTasks(markdown: string): import("../pipeline/schema").TaskItem[] {
+    const body = this.stripFrontmatter(markdown);
+    const tasks: import("../pipeline/schema").TaskItem[] = [];
+    const taskRegex = /^\s*[-*]\s+\[([ x])\]\s+(.+)$/gm;
+    let match: RegExpExecArray | null;
+    let order = 0;
+
+    while ((match = taskRegex.exec(body)) !== null) {
+      order++;
+      const checked = match[1] === "x";
+      const rawTitle = match[2].trim();
+      const mode: "gate" | "yolo" = /\(gate\)/i.test(rawTitle) ? "gate" : "yolo";
+      const cleanTitle = rawTitle.replace(/\s*\(gate\)\s*/i, "").replace(/\s*\(risk:(low|medium|high)\)\s*/i, "");
+      let risk: "low" | "medium" | "high" = "medium";
+      const riskMatch = rawTitle.match(/\(risk:(low|medium|high)\)/i);
+      if (riskMatch) risk = riskMatch[1].toLowerCase() as "low" | "medium" | "high";
+      tasks.push({
+        id: `task-${String(order).padStart(3, "0")}`,
+        order,
+        title: cleanTitle,
+        description: "",
+        mode,
+        status: checked ? "passed" : "pending",
+        risk,
+      });
+    }
+    return tasks;
+  }
+
+  private stripFrontmatter(markdown: string): string {
+    const match = markdown.match(/^---\n[\s\S]*?\n---\n*/);
+    return match ? markdown.slice(match[0].length) : markdown;
   }
 }

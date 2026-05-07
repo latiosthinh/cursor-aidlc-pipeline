@@ -24,7 +24,7 @@ export interface DagStep {
   gate: boolean;
   maxRetries: number;
   artifact: string;
-  loop?: { mode: "task" | "phase" | "cascade"; agent?: string; maxIterations: number } | null;
+  loop?: { mode: "task" | "phase" | "cascade"; agent?: string; maxIterations: number; target?: string } | null;
   tags: string[];
   depends_on: string[];
   skills: string[];
@@ -62,12 +62,27 @@ function buildLayout(steps: DagStep[]): { nodes: Node[]; edges: Edge[] } {
     for (const dep of step.depends_on) {
       if (steps.find((s) => s.id === dep)) {
         edges.push({
-          id: `${dep}->${step.id}`,
+          id: `dep:${dep}->${step.id}`,
           source: dep,
           target: step.id,
           type: "smoothstep",
           animated: true,
           style: { stroke: "#52525b", strokeWidth: 1.5 },
+        });
+      }
+    }
+    if (step.loop?.target) {
+      if (steps.find((s) => s.id === step.loop.target)) {
+        edges.push({
+          id: `loop:${step.id}->${step.loop.target}`,
+          source: step.id,
+          target: step.loop.target,
+          type: "smoothstep",
+          animated: false,
+          style: { stroke: "#a855f7", strokeWidth: 2, strokeDasharray: "6 4" },
+          label: "↺ loop",
+          labelStyle: { fill: "#a855f7", fontSize: 10, fontWeight: 500 },
+          labelBgStyle: { fill: "#18181b" },
         });
       }
     }
@@ -100,6 +115,26 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
       if (connection.source === connection.target) return;
 
       setEditing((prev) => {
+        const sourceIdx = prev.steps.findIndex((s) => s.id === connection.source);
+        const targetIdx = prev.steps.findIndex((s) => s.id === connection.target);
+        if (sourceIdx < 0 || targetIdx < 0) return prev;
+
+        // Reverse edge: source step loops back to target step
+        const isLoop = sourceIdx > targetIdx;
+        if (isLoop) {
+          const sourceStep = prev.steps[sourceIdx];
+          if (sourceStep.loop?.target === connection.target) return prev;
+          return {
+            ...prev,
+            steps: prev.steps.map((s) =>
+              s.id === connection.source
+                ? { ...s, loop: { ...(s.loop || { mode: "cascade" as const, agent: s.agent, maxIterations: 3 }), target: connection.target } }
+                : s
+            ),
+          };
+        }
+
+        // Forward edge: target depends on source
         const step = prev.steps.find((s) => s.id === connection.target);
         if (!step) return prev;
         if (step.depends_on.includes(connection.source)) return prev;
@@ -167,6 +202,7 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
         .map((s) => ({
           ...s,
           depends_on: s.depends_on.filter((d) => d !== id),
+          loop: s.loop?.target === id ? { ...s.loop, target: undefined } : s.loop,
         })),
     }));
     setSelectedStepId(null);

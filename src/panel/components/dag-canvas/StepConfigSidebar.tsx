@@ -13,10 +13,33 @@ interface StepConfigSidebarProps {
 }
 
 const MODELS = [
-  "claude-sonnet-4-20250514",
-  "claude-opus-4-20250514",
+  "default",
   "composer-2",
-  "claude-3-5-sonnet-20241022",
+  "composer-1.5",
+  "claude-sonnet-4-6",
+  "claude-sonnet-4-5",
+  "claude-sonnet-4",
+  "claude-opus-4-7",
+  "claude-opus-4-6",
+  "claude-opus-4-5",
+  "claude-haiku-4-5",
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+  "gpt-5.4-nano",
+  "gpt-5.2",
+  "gpt-5.1",
+  "gpt-5-mini",
+  "gpt-5.3-codex",
+  "gpt-5.3-codex-spark",
+  "gpt-5.2-codex",
+  "gpt-5.1-codex-max",
+  "gpt-5.1-codex-mini",
+  "gemini-3.1-pro",
+  "gemini-3-flash",
+  "gemini-2.5-flash",
+  "grok-4.3",
+  "kimi-k2.5",
 ];
 
 const LOOP_MODES = [
