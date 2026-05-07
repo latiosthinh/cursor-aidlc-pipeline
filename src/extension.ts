@@ -189,6 +189,11 @@ class PipelinePanel {
         this.postMessage({ type: "runList", runs });
         break;
       }
+      case "listPipelines": {
+        const plist = this._bridge.getPipelinesDetail();
+        this.postMessage({ type: "pipelineList", pipelines: plist });
+        break;
+      }
       case "selectRun": {
         const runState = this._bridge.loadRunById(msg.runId as string);
         if (runState) {

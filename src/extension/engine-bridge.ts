@@ -105,6 +105,20 @@ export class EngineBridge {
     return this.loader.listPipelines();
   }
 
+  getPipelinesDetail(): { name: string; description: string; stepCount: number; lastRunStatus: string | null }[] {
+    const names = this.loader.listPipelines();
+    return names.map((name) => {
+      const def = this.loader.loadPipeline(name);
+      const lastRun = this.listRuns().find((r) => r.pipelineName === name);
+      return {
+        name,
+        description: def.description ?? "",
+        stepCount: def.steps.length,
+        lastRunStatus: lastRun?.status ?? null,
+      };
+    });
+  }
+
   get agents(): string[] {
     return this.agentRegistry.listAll().map((a) => a.id);
   }

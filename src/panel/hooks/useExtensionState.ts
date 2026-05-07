@@ -73,6 +73,13 @@ export interface AgentStatusData {
   taskId?: string;
 }
 
+export interface PipelineDetailData {
+  name: string;
+  description: string;
+  stepCount: number;
+  lastRunStatus: string | null;
+}
+
 export interface RunSummaryData {
   runId: string;
   pipelineName: string;
@@ -95,6 +102,7 @@ export type ExtensionMessage =
   | { type: "decision"; decision: BridgeDecision }
   | { type: "skillList"; skills: string[] }
   | { type: "runList"; runs: RunSummaryData[] }
+  | { type: "pipelineList"; pipelines: PipelineDetailData[] }
   | { type: "stepLog"; runId: string; stepId: string; content: string | null };
 
 // ── Hook ────────────────────────────────────────────────────
@@ -105,6 +113,7 @@ export function useExtensionState() {
   const [agents, setAgents] = useState<string[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
   const [runs, setRuns] = useState<RunSummaryData[]>([]);
+  const [pipelineList, setPipelineList] = useState<PipelineDetailData[]>([]);
   const [agentStatus, setAgentStatus] = useState<AgentStatusData | null>(null);
   const [agentStream, setAgentStream] = useState<AgentEventData[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -125,6 +134,9 @@ export function useExtensionState() {
           break;
         case "runList":
           setRuns(msg.runs);
+          break;
+        case "pipelineList":
+          setPipelineList(msg.pipelines);
           break;
         case "skillList":
           setSkills(msg.skills);
@@ -166,6 +178,7 @@ export function useExtensionState() {
     agents,
     skills,
     runs,
+    pipelineList,
     agentStatus,
     agentStream,
     error,
