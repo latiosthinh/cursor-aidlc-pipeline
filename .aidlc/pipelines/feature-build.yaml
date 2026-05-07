@@ -1,0 +1,42 @@
+name: "Feature Build"
+version: "1.0"
+description: "Design → Implement → Test cycle for a single feature"
+
+execution:
+  mode: sequential
+
+steps:
+  - id: design
+    name: "Technical Design"
+    agent: architect
+    model: composer-2
+    gate: true
+    maxRetries: 3
+    artifact: design.md
+    tags: [technical]
+    skills: [software-architecture]
+
+  - id: implementation
+    name: "Implementation"
+    agent: executor
+    model: composer-2
+    gate: false
+    loop:
+      mode: task
+      agent: critic
+      maxIterations: 3
+    artifact: implementation.md
+    depends_on: [design]
+    tags: [code]
+    skills: [react-best-practices, typescript-best-practices, cursor-sdk-patterns]
+
+  - id: testing
+    name: "Test Generation"
+    agent: test-writer
+    model: composer-2
+    gate: true
+    maxRetries: 3
+    artifact: tests.md
+    depends_on: [implementation]
+    tags: [quality]
+    skills: [testing-strategies]

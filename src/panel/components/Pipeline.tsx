@@ -73,23 +73,46 @@ export const Pipeline: React.FC<PipelineProps> = ({ state, postMessage, agentRun
     return () => window.removeEventListener("message", handler);
   }, []);
 
+  const approved = state.steps.filter((s) => s.status === "approved").length;
+  const failed = state.steps.filter((s) => s.status === "failed" || s.status === "rejected").length;
+  const total = state.steps.length;
+  const progressPct = total > 0 ? Math.round(((approved + failed) / total) * 100) : 0;
+
   return (
     <div className="p-4 space-y-4">
       {/* Run status banner */}
-      <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border bg-card">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${
-              state.runStatus === "running" ? "bg-green-500 animate-pulse" :
-              state.runStatus === "completed" ? "bg-primary/60" :
-              state.runStatus === "failed" ? "bg-red-500" :
-              "bg-muted-foreground/40"
-            }`} />
-            <span className="text-sm font-medium">{state.pipelineName}</span>
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                state.runStatus === "running" ? "bg-green-500 animate-pulse" :
+                state.runStatus === "completed" ? "bg-green-500" :
+                state.runStatus === "failed" ? "bg-red-500" :
+                "bg-muted-foreground/40"
+              }`} />
+              <span className="text-sm font-medium">{state.pipelineName}</span>
+            </div>
+            <span className="badge badge-secondary text-[10px]">{state.runStatus}</span>
           </div>
-          <span className="badge badge-secondary">{state.runStatus}</span>
+          <span className="text-xs text-muted-foreground font-mono">{state.runId.slice(0, 12)}</span>
         </div>
-        <span className="text-xs text-muted-foreground font-mono">{state.runId}</span>
+        <div className="px-4 py-2 flex items-center gap-4 text-[11px] text-muted-foreground">
+          <span>✅ {approved} passed</span>
+          {failed > 0 && <span className="text-red-400">❌ {failed} failed</span>}
+          <span>📋 {total} total</span>
+          <div className="flex-1" />
+          <span>{progressPct}%</span>
+          <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${progressPct}%`,
+                background: state.runStatus === "failed" ? "#ef4444" : "#22c55e",
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Steps */}

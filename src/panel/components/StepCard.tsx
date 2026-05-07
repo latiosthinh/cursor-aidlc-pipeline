@@ -47,6 +47,11 @@ export const StepCard: React.FC<StepCardProps> = ({
   const isComplete = step.status === "approved";
   const isRejected = step.status === "rejected" || step.status === "failed";
 
+  const elapsed = (step.startedAt && step.completedAt)
+    ? (new Date(step.completedAt).getTime() - new Date(step.startedAt).getTime()) / 1000
+    : null;
+  const elapsedStr = elapsed ? (elapsed < 60 ? `${elapsed.toFixed(1)}s` : `${(elapsed / 60).toFixed(1)}m`) : null;
+
   return (
     <div
       className={`rounded-lg border transition-all animate-slide-in ${
@@ -87,6 +92,9 @@ export const StepCard: React.FC<StepCardProps> = ({
             )}
             {step.revision > 0 && (
               <span className="text-xs text-muted-foreground">rev {step.revision}</span>
+            )}
+            {elapsedStr && (
+              <span className="text-xs text-muted-foreground">⏱ {elapsedStr}</span>
             )}
             <span className={`badge ${statusBadge}`}>{statusLabel}</span>
           </div>

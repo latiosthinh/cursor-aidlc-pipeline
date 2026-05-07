@@ -1,0 +1,42 @@
+name: "Bug Fix"
+version: "1.0"
+description: "Bug investigation → fix → test verification"
+
+execution:
+  mode: sequential
+
+steps:
+  - id: investigate
+    name: "Investigate Bug"
+    agent: requirements-engineer
+    model: composer-2
+    gate: true
+    maxRetries: 2
+    artifact: bug-report.md
+    tags: [quality]
+    skills: [code-review-guidelines]
+
+  - id: fix
+    name: "Implement Fix"
+    agent: executor
+    model: composer-2
+    gate: false
+    loop:
+      mode: task
+      agent: critic
+      maxIterations: 2
+    artifact: fix.md
+    depends_on: [investigate]
+    tags: [code]
+    skills: [typescript-best-practices]
+
+  - id: verify
+    name: "Verify Fix"
+    agent: test-writer
+    model: composer-2
+    gate: true
+    maxRetries: 2
+    artifact: verification.md
+    depends_on: [fix]
+    tags: [quality]
+    skills: [testing-strategies]

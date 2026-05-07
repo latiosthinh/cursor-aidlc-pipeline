@@ -175,6 +175,9 @@ class PipelinePanel {
       case "createPipeline":
         await this._handleCreatePipeline();
         break;
+      case "createFromTemplate":
+        await this._handleCreateFromTemplate(msg.template as string);
+        break;
       case "savePipeline":
         await this._handleSavePipeline(msg.name as string, msg.data as any);
         break;
@@ -301,6 +304,23 @@ class PipelinePanel {
       await this._handleEditPipeline(name);
     } catch (err: any) {
       this._log.error(`Failed to create pipeline: ${err.message}`);
+    }
+  }
+
+  private async _handleCreateFromTemplate(template: string): Promise<void> {
+    try {
+      const result = this._bridge.cloneFromTemplate(template);
+      if (!result) {
+        vscode.window.showErrorMessage(`Template "${template}" not found`);
+        return;
+      }
+      this._log.info(`Created pipeline from template: ${result.name}`);
+      vscode.window.showInformationMessage(`Pipeline "${result.name}" created from template!`);
+      this._handleInit();
+      this.postMessage({ type: "pipelineList", pipelines: this._bridge.getPipelinesDetail() });
+      await this._handleEditPipeline(result.name);
+    } catch (err: any) {
+      this._log.error(`Failed to create from template: ${err.message}`);
     }
   }
 

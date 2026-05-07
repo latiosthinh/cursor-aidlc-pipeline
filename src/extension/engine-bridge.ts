@@ -48,6 +48,8 @@ export interface StepViewState {
   revision: number;
   artifact?: string;
   error?: string;
+  startedAt?: string;
+  completedAt?: string;
   tasks?: any[];
 }
 
@@ -174,6 +176,18 @@ export class EngineBridge {
       this.loader.deletePipeline(oldName);
     }
     this.currentPipeline = pipeline;
+  }
+
+  cloneFromTemplate(templateName: string): { name: string; pipeline: PipelineDefinition } | null {
+    const template = this.loader.loadPipeline(templateName);
+    if (!template) return null;
+    const existing = this.loader.listPipelines();
+    let name = templateName;
+    for (let i = 2; existing.includes(name); i++) {
+      name = `${templateName}-${i}`;
+    }
+    this.savePipeline(name, template);
+    return { name, pipeline: template };
   }
 
   saveSkill(id: string, content: string): void {
@@ -396,6 +410,8 @@ export class EngineBridge {
           agentLabel: agent?.label ?? step.agent,
           revision: s?.revision ?? 0,
           error: s?.error,
+          startedAt: s?.startedAt,
+          completedAt: s?.completedAt,
         };
       }),
       decisions: this.currentRun.decisions.map((d) => ({

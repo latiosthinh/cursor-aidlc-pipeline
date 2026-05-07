@@ -8,8 +8,16 @@ interface PiperunListPageProps {
   onStart: (pipeline: string) => void;
   onEdit: (pipeline: string) => void;
   onCreate: () => void;
+  onCreateFromTemplate: (template: string) => void;
   onBack: () => void;
 }
+
+const TEMPLATES = [
+  { id: "default", name: "Full SDLC", desc: "Idea → Report — complete development lifecycle", icon: "⚡", steps: 7 },
+  { id: "feature-build", name: "Feature Build", desc: "Design → Implement → Test cycle", icon: "🏗️", steps: 3 },
+  { id: "code-review", name: "Code Review", desc: "Review code → Report findings", icon: "🔍", steps: 2 },
+  { id: "bug-fix", name: "Bug Fix", desc: "Investigate → Fix → Verify", icon: "🐛", steps: 3 },
+];
 
 function statusColor(status: string | null): { color: string; label: string } {
   switch (status) {
@@ -28,6 +36,7 @@ export const PipelineListPage: React.FC<PiperunListPageProps> = ({
   onStart,
   onEdit,
   onCreate,
+  onCreateFromTemplate,
   onBack,
 }) => {
   useEffect(() => {
@@ -46,11 +55,35 @@ export const PipelineListPage: React.FC<PiperunListPageProps> = ({
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            New
+            Blank
           </button>
           <button onClick={onBack} className="btn-ghost h-7 text-xs px-2">Back</button>
         </div>
       </div>
+
+      {/* Template Gallery */}
+      {pipelineList.length === 0 && (
+        <div className="mb-6">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Start from a template</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {TEMPLATES.map((t) => (
+              <div
+                key={t.id}
+                className="rounded-lg border border-border bg-card hover:border-primary/40 transition-colors cursor-pointer p-3"
+                onClick={() => onCreateFromTemplate(t.id)}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm">{t.icon}</span>
+                  <span className="text-sm font-semibold">{t.name}</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">{t.steps} steps</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground line-clamp-2">{t.desc}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2">Or create a blank pipeline to build from scratch</p>
+        </div>
+      )}
 
       {pipelineList.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center">

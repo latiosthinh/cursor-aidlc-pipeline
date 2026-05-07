@@ -1,0 +1,27 @@
+name: "Code Review"
+version: "1.0"
+description: "Quick code review pipeline — review a branch or PR, report findings"
+
+execution:
+  mode: sequential
+
+steps:
+  - id: review
+    name: "Code Review"
+    agent: critic
+    model: composer-2
+    gate: false
+    maxRetries: 2
+    artifact: review.md
+    tags: [quality]
+    skills: [code-review-guidelines]
+
+  - id: report
+    name: "Review Report"
+    agent: reporter
+    model: composer-2
+    gate: true
+    maxRetries: 2
+    artifact: report.md
+    depends_on: [review]
+    tags: [documentation]

@@ -147,6 +147,7 @@ export default function App() {
             onStart={(pipeline) => { postMessage({ type: "startRun", pipeline }); setMode("run"); }}
             onEdit={handleEditPipeline}
             onCreate={() => postMessage({ type: "createPipeline" })}
+            onCreateFromTemplate={(template) => postMessage({ type: "createFromTemplate", template })}
             onBack={() => setMode(hasState ? "run" : "start")}
           />
         ) : !hasState && !agentStatus ? (
