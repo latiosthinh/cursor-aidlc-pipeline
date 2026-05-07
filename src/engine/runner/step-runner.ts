@@ -18,6 +18,12 @@ export interface StepRunner {
 }
 
 export class CursorSdkStepRunner implements StepRunner {
+  private apiKey?: string;
+
+  constructor(apiKey?: string) {
+    this.apiKey = apiKey;
+  }
+
   async run(
     step: StepDefinition,
     context: AgentContext,
@@ -40,10 +46,12 @@ export class CursorSdkStepRunner implements StepRunner {
     let agent;
     try {
       const { Agent } = await import("@cursor/sdk");
-      agent = await Agent.create({
+      const agentOpts: any = {
         model: { id: step.model },
         local: { cwd, sandboxOptions: { enabled: false } },
-      });
+      };
+      if (this.apiKey) agentOpts.apiKey = this.apiKey;
+      agent = await Agent.create(agentOpts);
     } catch (err: any) {
       throw new Error(
         `Cursor SDK agent creation failed: ${err.message}. ` +

@@ -387,9 +387,13 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(log);
   log.appendLine(`AIDLC activated. Workspace: ${workspaceRoot}`);
 
+  const config = vscode.workspace.getConfiguration("specflow");
+  const apiKey = config.get("apiKey", "") as string;
+
   const bridge = new EngineBridge(
     {
       workspaceRoot,
+      apiKey: apiKey || undefined,
       onStateUpdate: (state) => panel?.postMessage({ type: "stateUpdate", state }),
       onAgentEvent: (event) => panel?.postMessage({ type: "agentEvent", event }),
       onAgentStatus: (status) => panel?.postMessage({ type: "agentStatus", status }),

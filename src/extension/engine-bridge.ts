@@ -22,6 +22,7 @@ import { getCurrentBranch, getGitUserEmail } from "../utils/git";
 
 export interface BridgeConfig {
   workspaceRoot: string;
+  apiKey?: string;
   onStateUpdate: (state: BridgeState) => void;
   onAgentEvent: (event: AgentEvent) => void;
   onAgentStatus: (status: AgentStatus | null) => void;
@@ -462,7 +463,7 @@ export class EngineBridge {
     try {
       const { Agent } = await import("@cursor/sdk");
       if (Agent) {
-        return { runner: new CursorSdkStepRunner(), using: "Cursor SDK" };
+        return { runner: new CursorSdkStepRunner(this.config.apiKey), using: "Cursor SDK" };
       }
     } catch {}
     return { runner: new AnthropicStepRunner(), using: "Anthropic API" };
