@@ -4,6 +4,8 @@ import {
   AgentEvent,
   AgentEventType,
 } from "../pipeline/schema";
+import * as fs from "fs";
+import * as path from "path";
 
 export interface RunnerOptions {
   cwd: string;
@@ -63,6 +65,7 @@ export class CursorSdkStepRunner implements StepRunner {
     }
 
     let accumulatedText = "";
+    let lastWriteFile: string | null = null;
 
     try {
       for await (const msg of run.stream()) {
@@ -106,6 +109,10 @@ export class CursorSdkStepRunner implements StepRunner {
                 toolName: toolMsg.name,
                 resultLength: typeof toolMsg.result === "string" ? toolMsg.result.length : 0,
               });
+              // Track write_file calls to read back the artifact
+              if ((toolMsg.name === "write" || toolMsg.name === "write_file") && toolMsg.args?.filePath) {
+                lastWriteFile = toolMsg.args.filePath;
+              }
             } else if (toolMsg.status === "error") {
               emit("error", `Tool error: ${toolMsg.name}`, { toolName: toolMsg.name });
             }
@@ -130,7 +137,29 @@ export class CursorSdkStepRunner implements StepRunner {
       throw err;
     }
 
-    const result = accumulatedText;
+    let result = accumulatedText;
+
+    // If agent produced no text but wrote a file, read it back
+    if (!result && lastWriteFile) {
+      try {
+        const filePath = path.isAbsolute(lastWriteFile) ? lastWriteFile : path.join(cwd, lastWriteFile);
+        if (fs.existsSync(filePath)) {
+          result = fs.readFileSync(filePath, "utf-8");
+          emit("progress", `Read back artifact from ${lastWriteFile} (${result.length} chars)`);
+        }
+      } catch { /* file not readable */ }
+    }
+
+    // Fallback: look for the step's expected artifact file
+    if (!result) {
+      const artifactPath = path.join(cwd, step.artifact);
+      try {
+        if (fs.existsSync(artifactPath)) {
+          result = fs.readFileSync(artifactPath, "utf-8");
+          emit("progress", `Read back artifact from ${step.artifact} (${result.length} chars)`);
+        }
+      } catch { /* file not readable */ }
+    }
 
     emit("cost", `Task complete`, { duration: 0 });
     emit("done", `"${step.name}" complete`);

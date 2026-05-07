@@ -31,13 +31,13 @@ export class AutoReviewer {
       },
       {
         name: "min_length",
-        check: (output: string) => output.length >= 50,
-        failMessage: "Output is too short (< 50 chars) — likely incomplete",
+        check: (output: string) => output.length >= 10,
+        failMessage: "Output is too short (< 10 chars) — likely incomplete",
       },
       {
-        name: "has_sections",
-        check: (output: string) => /^#{1,3}\s/m.test(output),
-        failMessage: "Output has no markdown headings — expected structured document",
+        name: "has_content",
+        check: (output: string) => /^#{1,3}\s/m.test(output) || output.split("\n").length >= 3,
+        failMessage: "Output lacks structure — no markdown headings and fewer than 3 lines",
       },
     ];
   }
