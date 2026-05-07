@@ -8,29 +8,36 @@ A Cursor IDE extension that brings a fully customizable AI Development Life Cycl
 
 Users can define, visualize, and execute a fully customizable AI-powered SDLC pipeline inside Cursor — without leaving the editor or writing a single config file by hand.
 
+## Current State (v1.0)
+
+Shipped v1.0 MVP with 17,262 LOC TypeScript across 18 commits. The extension supports:
+- Full pipeline execution with 8 built-in agent types (idea-expander, requirements-engineer, architect, task-generator, executor, critic, reviewer, reporter)
+- Visual pipeline editor using React Flow DAG canvas
+- Task-level and phase-level looping with critic validation
+- Human review gates with approve/reject controls
+- Cascade-reject rollback on step failure
+- Custom agent prompts via `.aidlc/agents/` filesystem
+- Reusable skill context bundles via `.aidlc/skills/`
+
 ## Requirements
 
 ### Validated
 
-- User can brainstorm an idea and get a structured concept with surfaced assumptions (shipped in specflow-cursor v0.1)
-- User can derive formal requirements with acceptance criteria (shipped in specflow-cursor v0.1)
-- User can decompose a plan into executable tasks with gate/yolo classification (shipped in specflow-cursor v0.1)
-- User can execute tasks via `@cursor/sdk` agents (shipped in specflow-cursor v0.1)
-- User can approve/reject phases and track decisions (shipped in specflow-cursor v0.1)
+- ✓ Pipeline steps are defined in a user-editable YAML config, not hard-coded — v1.0
+- ✓ Each step can be assigned a different AI model — v1.0
+- ✓ Each step can toggle a human review gate on/off — v1.0
+- ✓ Steps can be added, removed, or reordered via a visual DAG canvas inside the extension — v1.0
+- ✓ Pipeline supports task-level looping (run critic after each sub-task) — v1.0
+- ✓ Pipeline supports phase-level looping (if tests fail, re-run implementation) — v1.0
+- ✓ Pipeline supports cascade-reject (any step can reject upstream, triggering re-flow) — v1.0
+- ✓ Auto-reviewer runs after each step (structural + semantic checks) — v1.0
+- ✓ Artifacts are archived per revision (not overwritten) — v1.0
+- ✓ Agent system prompts live in `.aidlc/agents/` directory for easy customization — v1.0
+- ✓ Users can load custom skills (`.aidlc/skills/`) as reusable context bundles — v1.0
 
 ### Active
 
-- Pipeline steps are defined in a user-editable YAML config, not hard-coded
-- Each step can be assigned a different AI model
-- Each step can toggle a human review gate on/off
-- Steps can be added, removed, or reordered via a visual DAG canvas inside the extension
-- Pipeline supports task-level looping (run critic after each sub-task)
-- Pipeline supports phase-level looping (if tests fail, re-run implementation)
-- Pipeline supports cascade-reject (any step can reject upstream, triggering re-flow)
-- Auto-reviewer runs after each step (structural + semantic checks)
-- Artifacts are archived per revision (not overwritten)
-- Agent system prompts live in `.aidlc/agents/` directory for easy customization
-- Users can load custom skills (`.aidlc/skills/`) as reusable context bundles
+(None — all v1.0 requirements validated.)
 
 ### Out of Scope
 
@@ -63,12 +70,14 @@ The refactoring decomposes the monolith into two packages: `engine/` (pure TypeS
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Two-package structure (engine/ + extension/) | Engine is reusable in CLI/CI; no VS Code deps in engine | — Pending |
-| Pipeline defined as YAML config file | Declarative, git-friendly, human-readable; GUI editor writes YAML | — Pending |
+| Two-package structure (engine/ + extension/) | Engine is reusable in CLI/CI; no VS Code deps in engine | ✓ Good |
+| Pipeline defined as YAML config file | Declarative, git-friendly, human-readable; GUI editor writes YAML | ✓ Good |
 | Sequential execution | User chose sequential over DAG-parallel for simplicity | ✓ Good |
-| Visual DAG canvas for config | User chose drag-and-drop node editor over form wizard | — Pending |
-| Agent prompts in `.aidlc/agents/*.md` | User chose external files over inline YAML for reusability | — Pending |
-| `@xyflow/react` for DAG canvas | Industry standard React node editor, free MIT license | — Pending |
+| Visual DAG canvas for config | User chose drag-and-drop node editor over form wizard | ✓ Good |
+| Agent prompts in `.aidlc/agents/*.md` | User chose external files over inline YAML for reusability | ✓ Good |
+| `@xyflow/react` for DAG canvas | Industry standard React node editor, free MIT license | ✓ Good |
+| Cursor SDK primary / Anthropic fallback | Development inside vs outside Cursor IDE | ✓ Good |
 
 ---
-*Last updated: 2026-05-05 after GSD initialization*
+
+*Last updated: 2026-05-07 after v1.0 milestone*
