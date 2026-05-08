@@ -99,13 +99,15 @@ class PipelinePanel {
     }
   }
 
-  async handleApproveStep(): Promise<void> {
-    const state = this._bridge.getBridgeState();
-    if (!state) return;
-    const currentStep = state.steps.find((s) => s.status === "in_review");
-    if (currentStep) {
-      await this._bridge.handleApproveStep(currentStep.id);
+  async handleApproveStep(stepId?: string): Promise<void> {
+    if (!stepId) {
+      const state = this._bridge.getBridgeState();
+      if (!state) return;
+      const currentStep = state.steps.find((s) => s.status === "in_review");
+      if (!currentStep) return;
+      stepId = currentStep.id;
     }
+    await this._bridge.handleApproveStep(stepId);
   }
 
   async handleRejectStep(stepId?: string): Promise<void> {
@@ -158,7 +160,7 @@ class PipelinePanel {
         await this._handleStartRunFromMessage(msg.pipeline as string | undefined, msg.idea as string | undefined);
         break;
       case "approveStep":
-        await this.handleApproveStep();
+        await this.handleApproveStep(msg.stepId as string);
         break;
       case "rejectStep":
         await this.handleRejectStep(msg.stepId as string);

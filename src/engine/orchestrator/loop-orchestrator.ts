@@ -199,13 +199,54 @@ export class LoopOrchestrator {
         timestamp: new Date().toISOString(),
       });
 
-      const result = await runner.run(stepDef, {
-        cwd,
-        model: stepDef.model,
-        idea,
-        artifacts,
-        skillsContext,
-      }, { cwd, onEvent, signal });
+      let result: string;
+      try {
+        result = await runner.run(stepDef, {
+          cwd,
+          model: stepDef.model,
+          idea,
+          artifacts,
+          skillsContext,
+        }, { cwd, onEvent, signal });
+      } catch (err: any) {
+        const errMsg = err?.message ?? String(err);
+        console.error(`[Orchestrator] Step "${stepDef.name}" runner failed:`, errMsg);
+        console.error(`[Orchestrator] Stack:`, err?.stack);
+        onEvent({
+          type: "error",
+          stepId,
+          content: `Runner failed: ${errMsg}`,
+          timestamp: new Date().toISOString(),
+        });
+        onDecision({
+          id: `D${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          type: "step_failed",
+          summary: `Step "${stepDef.name}" runner error: ${errMsg}`,
+          stepId,
+        });
+        this.machine.transitionStep(run, stepId, "failed");
+        stepState.error = errMsg;
+        if (stepState.retriesRemaining > 0) {
+          stepState.retriesRemaining--;
+          onEvent({
+            type: "progress",
+            stepId,
+            content: `Retrying (${stepState.retriesRemaining} retries left)...`,
+            timestamp: new Date().toISOString(),
+          });
+          continue;
+        }
+        onDecision({
+          id: `D${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          type: "step_rejected",
+          summary: `Step "${stepDef.name}" failed after exhausting retries: ${errMsg}`,
+          stepId,
+        });
+        this.machine.setRunStatus(run, "failed");
+        return;
+      }
 
       // ── Save artifact to disk ────────────────────────────
       const artifactDir = path.join(cwd, ".aidlc/runs", run.runId, "steps", stepDef.id);
@@ -214,7 +255,7 @@ export class LoopOrchestrator {
       stepState.outputArtifact = path.join(".aidlc/runs", run.runId, "steps", stepDef.id, "latest.md");
 
       // ── Auto-review ──────────────────────────────────────
-      const review = await this.reviewer.review(stepId, stepState, result, undefined, undefined);
+      const review = await this.reviewer.review(stepId, stepState, result, undefined, undefined, stepDef.tags);
       onDecision({
         id: `D${Date.now()}`,
         timestamp: new Date().toISOString(),

@@ -43,7 +43,8 @@ export const StepCard: React.FC<StepCardProps> = ({
   onViewLog,
   showLogs,
 }) => {
-  const isActive = step.status === "in_review" || step.status === "running";
+  const isWaitingGate = step.status === "in_review";
+  const isActive = step.status === "running";
   const isComplete = step.status === "approved";
   const isRejected = step.status === "rejected" || step.status === "failed";
 
@@ -55,6 +56,7 @@ export const StepCard: React.FC<StepCardProps> = ({
   return (
     <div
       className={`rounded-lg border transition-all animate-slide-in ${
+        isWaitingGate ? "border-yellow-500/50 bg-yellow-500/10 ring-1 ring-yellow-500/20" :
         isActive ? "border-primary/50 bg-primary/5" :
         isRejected ? "border-red-500/20 bg-red-500/5" :
         "border-border bg-card hover:border-border/80"
@@ -66,6 +68,7 @@ export const StepCard: React.FC<StepCardProps> = ({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <div className={`flex items-center justify-center w-8 h-8 rounded-md ${
+              isWaitingGate ? "bg-yellow-500/10 text-yellow-400" :
               isActive ? "bg-primary/10 text-primary" :
               isComplete ? "bg-green-500/10 text-green-400" :
               isRejected ? "bg-red-500/10 text-red-400" :
@@ -108,10 +111,32 @@ export const StepCard: React.FC<StepCardProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
+          {isWaitingGate && (
+            <>
+              <button
+                onClick={() => postMessage({ type: "approveStep", stepId: step.id })}
+                className="btn-primary h-7 text-xs gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Approve
+              </button>
+              <button
+                onClick={() => postMessage({ type: "rejectStep", stepId: step.id })}
+                className="btn-destructive h-7 text-xs gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                Reject
+              </button>
+            </>
+          )}
           {isActive && !agentRunning && (
             <>
               <button
-                onClick={() => postMessage({ type: "approveStep" })}
+                onClick={() => postMessage({ type: "approveStep", stepId: step.id })}
                 className="btn-primary h-7 text-xs gap-1.5"
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

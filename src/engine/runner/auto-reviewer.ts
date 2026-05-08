@@ -72,8 +72,10 @@ export class AutoReviewer {
     output: string,
     customChecks?: StructuralCheck[],
     customValidators?: CustomValidator[],
+    stepTags?: string[],
   ): Promise<ReviewResult> {
-    const checks = customChecks ?? this.defaultStructuralChecks();
+    const isImplementation = (stepTags || []).some(t => ["code", "build", "implement", "implementation"].includes(t.toLowerCase()));
+    const checks = customChecks ?? (isImplementation ? this.implementationChecks() : this.defaultStructuralChecks());
     const structuralResults: { pass: boolean; message: string }[] = [];
 
     for (const check of checks) {
@@ -83,6 +85,16 @@ export class AutoReviewer {
 
     const structuralPass = structuralResults.every((r) => r.pass);
     const semanticDetails: string[] = [];
+
+    // For implementation steps, check that code files were actually created
+    if (isImplementation && this.workspaceRoot) {
+      const codeFiles = this.findCodeFiles(this.workspaceRoot);
+      if (codeFiles.length === 0) {
+        semanticDetails.push("[implementation] No source code files found — agent should have created .ts/.tsx/.js/.jsx files");
+      } else {
+        semanticDetails.push(`[implementation] Created ${codeFiles.length} source file(s): ${codeFiles.slice(0, 5).join(", ")}${codeFiles.length > 5 ? "..." : ""}`);
+      }
+    }
 
     // Run custom validators
     if (customValidators && customValidators.length > 0) {
@@ -143,6 +155,40 @@ export class AutoReviewer {
       structuralPass,
       semanticPass,
     };
+  }
+
+  private implementationChecks(): StructuralCheck[] {
+    return [
+      {
+        name: "file_exists",
+        check: (output: string) => output.length > 0,
+        failMessage: "Agent produced no build summary",
+      },
+      {
+        name: "no_placeholders",
+        check: (output: string) => !/{{.*?}}/.test(output),
+        failMessage: "Output contained unresolved placeholders (e.g. {{ ... }})",
+      },
+    ];
+  }
+
+  private findCodeFiles(workspaceRoot: string): string[] {
+    const codeExtensions = [".ts", ".tsx", ".js", ".jsx", ".css", ".scss", ".html", ".json"];
+    const results: string[] = [];
+    try {
+      const scan = (dir: string) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const fullPath = `${dir}/${entry.name}`;
+          if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules" && entry.name !== ".aidlc") {
+            scan(fullPath);
+          } else if (entry.isFile() && codeExtensions.some(ext => entry.name.endsWith(ext))) {
+            results.push(entry.name);
+          }
+        }
+      };
+      scan(workspaceRoot);
+    } catch { /* ignore */ }
+    return results;
   }
 
   private extractFileReferences(output: string): string[] {

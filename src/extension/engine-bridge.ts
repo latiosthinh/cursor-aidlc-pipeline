@@ -214,6 +214,11 @@ export class EngineBridge {
   }
 
   async startRun(pipelineName: string, pipeline: PipelineDefinition, idea?: string): Promise<void> {
+    // Re-read API key from config at run time (settings may have changed)
+    const config = vscode.workspace.getConfiguration("aidlc");
+    const currentApiKey = config.get("apiKey", "") as string;
+    this.config.apiKey = currentApiKey || undefined;
+
     const runId = `run-${Date.now()}`;
     this.runStore.ensureRunDir(runId);
 
@@ -259,6 +264,8 @@ export class EngineBridge {
               }
               this.runStore.saveState(this.currentRun!);
               this.emitStateUpdate();
+              // Clear agent running status so UI updates
+              this.config.onAgentStatus(null);
               resolve();
             });
           });
@@ -307,38 +314,35 @@ export class EngineBridge {
   async handleApproveStep(stepId: string): Promise<void> {
     const resolver = this.gateResolvers.get(stepId);
     if (resolver) {
+      this.log.info(`Approving step ${stepId} via gate resolver`);
       resolver(true);
       return;
     }
 
-    if (!this.currentRun) return;
-    const trans = this.machine.transitionStep(this.currentRun, stepId, "approved");
-    if (trans.success) {
-      this.machine.addDecision(this.currentRun, {
-        id: `D${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        type: "step_approved",
-        summary: `Step "${stepId}" approved by user`,
-        stepId,
-      });
-      this.runStore.saveState(this.currentRun);
-
-      // Check if all steps approved
-      const allApproved = Object.values(this.currentRun.steps).every(
-        (s) => s.status === "approved" || s.status === "skipped"
-      );
-      if (allApproved) {
-        this.machine.setRunStatus(this.currentRun, "completed");
+    // Fallback: if no resolver (e.g. run already completed), manually transition
+    if (!this.currentRun) {
+      this.log.warn(`handleApproveStep: no current run`);
+      return;
+    }
+    const stepState = this.currentRun.steps[stepId];
+    if (!stepState) {
+      this.log.warn(`handleApproveStep: step ${stepId} not found`);
+      return;
+    }
+    if (stepState.status === "in_review") {
+      this.log.info(`Approving step ${stepId} via direct transition`);
+      const trans = this.machine.transitionStep(this.currentRun, stepId, "approved");
+      if (trans.success) {
         this.machine.addDecision(this.currentRun, {
           id: `D${Date.now()}`,
           timestamp: new Date().toISOString(),
-          type: "run_completed",
-          summary: `Pipeline "${this.currentRun.pipelineName}" completed`,
+          type: "step_approved",
+          summary: `Step "${stepId}" approved by user`,
+          stepId,
         });
         this.runStore.saveState(this.currentRun);
+        this.emitStateUpdate();
       }
-
-      this.emitStateUpdate();
     }
   }
 
@@ -346,6 +350,7 @@ export class EngineBridge {
     const resolver = this.gateResolvers.get(stepId);
     if (resolver) {
       resolver(false);
+      this.config.onAgentStatus(null);
       return;
     }
 
@@ -360,6 +365,7 @@ export class EngineBridge {
         stepId,
       });
       this.runStore.saveState(this.currentRun);
+      this.config.onAgentStatus(null);
       this.emitStateUpdate();
     }
   }
