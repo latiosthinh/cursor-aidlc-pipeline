@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { StepCard } from "./StepCard";
 import { DecisionLog } from "./DecisionLog";
-import type { BridgeState } from "../hooks/useExtensionState";
+import type { BridgeState, LoopGroupState } from "../hooks/useExtensionState";
 
 interface PipelineProps {
   state: BridgeState;
@@ -114,6 +114,59 @@ export const Pipeline: React.FC<PipelineProps> = ({ state, postMessage, agentRun
           </div>
         </div>
       </div>
+
+      {/* Loop Groups */}
+      {state.loopGroups && state.loopGroups.length > 0 && (
+        <div className="space-y-2">
+          {state.loopGroups.map((group: LoopGroupState) => (
+            <div
+              key={group.name}
+              className="rounded-lg border overflow-hidden"
+              style={{
+                borderColor: group.active ? "rgba(168, 85, 247, 0.4)" : "rgba(168, 85, 247, 0.15)",
+                background: group.active ? "rgba(168, 85, 247, 0.08)" : "rgba(168, 85, 247, 0.03)",
+              }}
+            >
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <svg className="w-3.5 h-3.5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                  </svg>
+                  <span className="text-xs font-medium text-purple-300">{group.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">
+                    Iteration {group.iteration}/{group.maxIterations}
+                  </span>
+                  {group.active && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                  )}
+                </div>
+              </div>
+              <div className="px-3 pb-2 flex gap-1.5 flex-wrap">
+                {group.steps.map((stepId: string) => {
+                  const step = state.steps.find((s) => s.id === stepId);
+                  const statusColor = step?.status === "approved" ? "#22c55e"
+                    : step?.status === "running" || step?.status === "in_review" ? "#a855f7"
+                    : step?.status === "failed" || step?.status === "rejected" ? "#ef4444"
+                    : "#52525b";
+                  return (
+                    <span
+                      key={stepId}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono"
+                      style={{ background: `${statusColor}15`, color: statusColor, border: `1px solid ${statusColor}30` }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor }} />
+                      {stepId}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Steps */}
       <div className="space-y-2">

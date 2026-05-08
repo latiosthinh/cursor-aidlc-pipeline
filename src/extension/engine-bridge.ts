@@ -30,12 +30,21 @@ export interface BridgeConfig {
   onError: (error: string) => void;
 }
 
+export interface LoopGroupState {
+  name: string;
+  iteration: number;
+  maxIterations: number;
+  steps: string[];
+  active: boolean;
+}
+
 export interface BridgeState {
   pipelineName: string;
   runId: string;
   runStatus: string;
   steps: StepViewState[];
   decisions: BridgeDecision[];
+  loopGroups?: LoopGroupState[];
 }
 
 export interface StepViewState {
@@ -240,6 +249,7 @@ export class EngineBridge {
         ? [{ id: `D${Date.now()}`, timestamp: new Date().toISOString(), type: "run_started", summary: idea, stepId: undefined }]
         : [],
       loopStack: [],
+      loopGroupIterations: {},
     };
 
     this.runStore.saveState(this.currentRun);
@@ -459,6 +469,25 @@ export class EngineBridge {
   getBridgeState(): BridgeState | null {
     if (!this.currentRun || !this.currentPipeline) return null;
 
+    const loopGroups: LoopGroupState[] = [];
+    const pipelineWithGroups = this.currentPipeline as any;
+    if (pipelineWithGroups.loop_groups && Array.isArray(pipelineWithGroups.loop_groups)) {
+      for (const group of pipelineWithGroups.loop_groups) {
+        const iteration = this.currentRun.loopGroupIterations?.[group.name] ?? 0;
+        const activeSteps = group.steps.filter((sId: string) => {
+          const s = this.currentRun!.steps[sId];
+          return s && (s.status === "running" || s.status === "in_review");
+        });
+        loopGroups.push({
+          name: group.name,
+          iteration: iteration + 1,
+          maxIterations: group.maxIterations,
+          steps: group.steps,
+          active: activeSteps.length > 0,
+        });
+      }
+    }
+
     return {
       pipelineName: this.currentRun.pipelineName,
       runId: this.currentRun.runId,
@@ -487,6 +516,7 @@ export class EngineBridge {
         detail: d.detail,
         stepId: d.stepId,
       })),
+      loopGroups,
     };
   }
 

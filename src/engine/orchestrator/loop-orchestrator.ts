@@ -5,6 +5,7 @@ import {
   StepRunState,
   Decision,
   StepStatus,
+  LoopGroup,
 } from "../pipeline/schema";
 import { StateMachine } from "./state-machine";
 import { LoopManager, TaskLoopOptions } from "../runner/loop-manager";
@@ -350,6 +351,65 @@ export class LoopOrchestrator {
         return;
       }
 
+      // ── Handle loop groups ──────────────────────────────
+      const loopGroup = this.findLoopGroupForStep(stepId, pipeline);
+      if (loopGroup) {
+        const lastStepId = loopGroup.steps[loopGroup.steps.length - 1];
+        const isFirstStepId = loopGroup.steps[0];
+
+        if (stepId === lastStepId) {
+          const allPassed = loopGroup.steps.every((sId) => {
+            const s = run.steps[sId];
+            return s && (s.status === "approved" || s.status === "skipped");
+          });
+
+          const groupKey = loopGroup.name;
+          const iterations = run.loopGroupIterations[groupKey] ?? 0;
+
+          if (allPassed) {
+            onDecision({
+              id: `D${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              type: "user_note",
+              summary: `Loop group "${loopGroup.name}" passed after ${iterations + 1} iteration(s)`,
+            });
+            run.loopGroupIterations[groupKey] = 0;
+          } else if (iterations < loopGroup.maxIterations - 1) {
+            run.loopGroupIterations[groupKey] = iterations + 1;
+            onDecision({
+              id: `D${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              type: "loop_iteration",
+              summary: `Loop group "${loopGroup.name}" iteration ${iterations + 2}/${loopGroup.maxIterations} — retrying from "${isFirstStepId}"`,
+            });
+
+            for (const sId of loopGroup.steps) {
+              const s = run.steps[sId];
+              if (s && s.status !== "approved" && s.status !== "skipped") {
+                s.status = "pending";
+                s.retriesRemaining = pipeline.steps.find((ps) => ps.id === sId)?.maxRetries ?? 3;
+              }
+            }
+
+            const firstIdx = order.indexOf(isFirstStepId);
+            if (firstIdx >= 0) {
+              i = firstIdx;
+              continue;
+            }
+          } else {
+            onDecision({
+              id: `D${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              type: "step_rejected",
+              summary: `Loop group "${loopGroup.name}" failed after ${loopGroup.maxIterations} iterations`,
+              stepId,
+            });
+            this.machine.setRunStatus(run, "failed");
+            return;
+          }
+        }
+      }
+
       i++;
     }
 
@@ -414,5 +474,11 @@ export class LoopOrchestrator {
   private stripFrontmatter(markdown: string): string {
     const match = markdown.match(/^---\n[\s\S]*?\n---\n*/);
     return match ? markdown.slice(match[0].length) : markdown;
+  }
+
+  private findLoopGroupForStep(stepId: string, pipeline: PipelineDefinition): LoopGroup | null {
+    const groups = (pipeline as any).loop_groups;
+    if (!groups || !Array.isArray(groups)) return null;
+    return groups.find((g: LoopGroup) => g.steps.includes(stepId)) ?? null;
   }
 }

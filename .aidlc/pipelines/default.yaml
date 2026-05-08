@@ -52,13 +52,19 @@ steps:
     agent: executor
     model: composer-2
     gate: false
-    loop:
-      mode: task
-      agent: critic
-      maxIterations: 3
-    artifact: tasks.md
+    artifact: implementation.md
     tags: [code]
     skills: [react-best-practices, typescript-best-practices, cursor-sdk-patterns]
+
+  - id: build-verify
+    name: "Build & Test"
+    agent: build-verifier
+    model: composer-2
+    gate: false
+    maxRetries: 3
+    artifact: build-report.md
+    depends_on: [implementation]
+    tags: [quality]
 
   - id: test-generation
     name: "Test Generation"
@@ -78,3 +84,9 @@ steps:
     maxRetries: 2
     artifact: report.md
     tags: [documentation]
+
+loop_groups:
+  - name: "Build Loop"
+    steps: [implementation, build-verify]
+    maxIterations: 3
+    exitOn: all_pass

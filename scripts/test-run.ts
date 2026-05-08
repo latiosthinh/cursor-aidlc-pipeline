@@ -90,6 +90,7 @@ const run: PipelineRunState = {
   steps,
   decisions: [],
   loopStack: [],
+  loopGroupIterations: {},
 };
 
 runStore.saveState(run);

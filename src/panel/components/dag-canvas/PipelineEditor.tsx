@@ -30,6 +30,13 @@ export interface DagStep {
   skills: string[];
 }
 
+export interface LoopGroupDef {
+  name: string;
+  steps: string[];
+  maxIterations: number;
+  exitOn: "all_pass" | "last_pass";
+}
+
 export interface DagData {
   name: string;
   version: string;
@@ -37,6 +44,7 @@ export interface DagData {
   steps: DagStep[];
   agents: string[];
   skills: string[];
+  loop_groups?: LoopGroupDef[];
 }
 
 export interface PipelineEditorProps {
@@ -137,7 +145,7 @@ const AGENT_TEMPLATES: AgentTemplate[] = [
   },
 ];
 
-function buildLayout(steps: DagStep[]): { nodes: Node[]; edges: Edge[] } {
+function buildLayout(steps: DagStep[], loopGroups?: LoopGroupDef[]): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = steps.map((step, i) => ({
     id: step.id,
     type: "stepNode",
@@ -177,6 +185,75 @@ function buildLayout(steps: DagStep[]): { nodes: Node[]; edges: Edge[] } {
     }
   }
 
+  // ── Add loop group regions and backward edges ──────────────
+  if (loopGroups && loopGroups.length > 0) {
+    for (const group of loopGroups) {
+      const groupStepIds = group.steps.filter((sId) => steps.find((s) => s.id === sId));
+      if (groupStepIds.length < 2) continue;
+
+      const indices = groupStepIds.map((sId) => steps.findIndex((s) => s.id === sId)).filter((idx) => idx >= 0);
+      if (indices.length < 2) continue;
+
+      const minIdx = Math.min(...indices);
+      const maxIdx = Math.max(...indices);
+      const firstStepId = groupStepIds[0];
+      const lastStepId = groupStepIds[groupStepIds.length - 1];
+
+      // Group node position and size
+      const groupX = 10;
+      const groupY = minIdx * 170 - 10;
+      const groupWidth = 270;
+      const groupHeight = (maxIdx - minIdx + 1) * 170 + 20;
+
+      // Create group node first
+      nodes.push({
+        id: `group:${group.name}`,
+        type: "group",
+        position: { x: groupX, y: groupY },
+        data: { label: `↻ ${group.name} (max ${group.maxIterations}×)` },
+        style: {
+          width: groupWidth,
+          height: groupHeight,
+          background: "rgba(168, 85, 247, 0.06)",
+          border: "1.5px dashed rgba(168, 85, 247, 0.35)",
+          borderRadius: "14px",
+        },
+        draggable: false,
+        selectable: false,
+        zIndex: -1,
+      });
+
+      // Adjust child positions to be relative to group
+      for (const sId of groupStepIds) {
+        const nodeIdx = nodes.findIndex((n) => n.id === sId);
+        if (nodeIdx >= 0) {
+          const origY = (nodes[nodeIdx].position as { x: number; y: number }).y;
+          nodes[nodeIdx] = {
+            ...nodes[nodeIdx],
+            parentNode: `group:${group.name}`,
+            position: { x: 20, y: origY - groupY },
+            extendParent: true,
+          };
+        }
+      }
+
+      // Add backward edge from last to first step in group
+      if (steps.find((s) => s.id === firstStepId) && steps.find((s) => s.id === lastStepId)) {
+        edges.push({
+          id: `loop-group:${lastStepId}->${firstStepId}`,
+          source: lastStepId,
+          target: firstStepId,
+          type: "smoothstep",
+          animated: true,
+          style: { stroke: "#a855f7", strokeWidth: 2, strokeDasharray: "8 4" },
+          label: `↻ retry`,
+          labelStyle: { fill: "#a855f7", fontSize: 10, fontWeight: 600 },
+          labelBgStyle: { fill: "#18181b", fillOpacity: 0.9 },
+        });
+      }
+    }
+  }
+
   return { nodes, edges };
 }
 
@@ -188,16 +265,16 @@ export const PipelineEditor: React.FC<PipelineEditorProps> = ({ data, onSave, on
   const [showSkillModal, setShowSkillModal] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildLayout(editing.steps), [editing.steps]);
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildLayout(editing.steps, editing.loop_groups), [editing.steps, editing.loop_groups]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   React.useEffect(() => {
-    const { nodes: newNodes, edges: newEdges } = buildLayout(editing.steps);
+    const { nodes: newNodes, edges: newEdges } = buildLayout(editing.steps, editing.loop_groups);
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [editing.steps]);
+  }, [editing.steps, editing.loop_groups]);
 
   const onConnect = useCallback(
     (connection: Connection) => {

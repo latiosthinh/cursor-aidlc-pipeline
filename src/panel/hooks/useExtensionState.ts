@@ -44,12 +44,21 @@ export interface StepViewState {
   tasks?: any[];
 }
 
+export interface LoopGroupState {
+  name: string;
+  iteration: number;
+  maxIterations: number;
+  steps: string[];
+  active: boolean;
+}
+
 export interface BridgeState {
   pipelineName: string;
   runId: string;
   runStatus: string;
   steps: StepViewState[];
   decisions: BridgeDecision[];
+  loopGroups?: LoopGroupState[];
 }
 
 export interface BridgeDecision {

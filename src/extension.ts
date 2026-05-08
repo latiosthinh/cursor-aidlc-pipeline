@@ -290,6 +290,7 @@ class PipelinePanel {
           })),
           agents,
           skills,
+          loop_groups: (pipelineDef as any).loop_groups ?? [],
         },
       });
     } catch (err: any) {
@@ -347,6 +348,7 @@ class PipelinePanel {
           skills: s.skills ?? [],
         })),
         agents: [],
+        loop_groups: data.loop_groups ?? [],
       };
       this._bridge.savePipeline(name, pipelineDef);
       this._log.info(`Pipeline "${name}" saved`);

@@ -11,6 +11,15 @@ export const LoopConfigSchema = z.object({
 
 export type LoopConfig = z.infer<typeof LoopConfigSchema>;
 
+export const LoopGroupSchema = z.object({
+  name: z.string().min(1),
+  steps: z.array(z.string()).min(2),
+  maxIterations: z.number().int().min(1).max(50).default(3),
+  exitOn: z.enum(["all_pass", "last_pass"]).default("all_pass"),
+});
+
+export type LoopGroup = z.infer<typeof LoopGroupSchema>;
+
 export const StepDefinitionSchema = z.object({
   id: z.string().min(1).regex(/^[a-z0-9-]+$/),
   name: z.string().min(1),
@@ -48,6 +57,7 @@ export const PipelineDefinitionSchema = z.object({
   }).default({ mode: "sequential" }),
   steps: z.array(StepDefinitionSchema).min(1),
   agents: z.array(AgentDefinitionSchema).default([]),
+  loop_groups: z.array(LoopGroupSchema).default([]),
 });
 
 export type PipelineDefinition = z.infer<typeof PipelineDefinitionSchema>;
@@ -110,6 +120,7 @@ export interface PipelineRunState {
   steps: Record<string, StepRunState>;
   decisions: Decision[];
   loopStack: LoopFrame[];
+  loopGroupIterations: Record<string, number>;
 }
 
 export interface LoopFrame {
